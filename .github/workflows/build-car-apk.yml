@@ -16,6 +16,7 @@ jobs:
         with:
           ref: v1.1.1
           fetch-depth: 0
+          fetch-tags: true
 
       # 2) 从分支取回歌词补丁文件（补丁只含 v1.1.1 的歌词放大改动）
       - name: Fetch lyrics patch from branch
@@ -42,7 +43,7 @@ jobs:
       - name: Accept licenses & install SDK platform
         run: |
           yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platforms;android-36" "platform-tools" || true
+          sdkmanager "platforms;android-36" "platform-tools" "ndk;28.2.13676358" || true
 
       - name: Make gradlew executable
         run: chmod +x gradlew

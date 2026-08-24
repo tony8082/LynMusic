@@ -1,0 +1,62 @@
+name: Build LynMusic Car APK (lyrics 3x)
+
+# 触发：推送到 car-lyrics-3x 分支，或手动 workflow_dispatch
+on:
+  push:
+    branches: [ car-lyrics-3x ]
+  workflow_dispatch:
+
+jobs:
+  build-car-apk:
+    runs-on: ubuntu-latest
+    steps:
+      # 1) 检出精确的 v1.1.1 发布标签（不是 main，避免无关改动混入）
+      - name: Checkout v1.1.1 tag
+        uses: actions/checkout@v4
+        with:
+          ref: v1.1.1
+          fetch-depth: 0
+
+      # 2) 从分支取回歌词补丁文件（补丁只含 v1.1.1 的歌词放大改动）
+      - name: Fetch lyrics patch from branch
+        run: |
+          git fetch origin car-lyrics-3x
+          git checkout origin/car-lyrics-3x -- car-lyrics-3x.patch
+
+      # 3) 套用补丁：车机歌词放大到约 72/66/48 sp（仅车机，手机/电视不变）
+      - name: Apply lyrics 3x patch
+        run: git apply car-lyrics-3x.patch
+
+      # 4) JDK 17（AGP 8.13 / Kotlin 2.3 需要）
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # 5) Android SDK 命令行工具
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      # 6) 接受许可并安装 compileSdk=36 平台（NDK/build-tools 由 AGP 自动下载）
+      - name: Accept licenses & install SDK platform
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-36" "platform-tools" || true
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      # 7) 构建车机 debug APK（系统自动签名，可直接 adb install）
+      - name: Build automotiveApp debug APK
+        run: ./gradlew :automotiveApp:assembleDebug --no-daemon --stacktrace
+        env:
+          GRADLE_OPTS: "-Xmx4g -XX:MaxMetaspaceSize=512m"
+
+      # 8) 上传 APK 产物
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LynMusic-Car-3x-lyrics-debug
+          path: automotiveApp/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

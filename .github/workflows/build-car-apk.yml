@@ -10,36 +10,35 @@ jobs:
   build-car-apk:
     runs-on: ubuntu-latest
     steps:
-      # 1) 检出精确的 v1.1.1 发布标签（不是 main，避免无关改动混入）
-      - name: Checkout v1.1.1 tag
+      # 1) 检出本 fork 分支（内含 car-lyrics-3x.patch 文件）
+      - name: Checkout fork branch
         uses: actions/checkout@v4
         with:
-          ref: v1.1.1
           fetch-depth: 0
-          fetch-tags: true
 
-      # 2) 从分支取回歌词补丁文件（补丁只含 v1.1.1 的歌词放大改动）
-      - name: Fetch lyrics patch from branch
+      # 2) 从上游拉取 v1.1.1 标签（fork 不自带 tag），切到该标签，
+      #    再从本 fork 分支取回补丁并套用（车机歌词放大到约 72/66/48 sp）
+      - name: Fetch v1.1.1 tag from upstream & apply lyrics patch
         run: |
-          git fetch origin car-lyrics-3x
+          git remote add upstream https://github.com/wesley666/LynMusic.git
+          git fetch upstream refs/tags/v1.1.1:refs/tags/v1.1.1 --depth=1
+          git checkout v1.1.1
+          git fetch origin car-lyrics-3x --depth=1
           git checkout origin/car-lyrics-3x -- car-lyrics-3x.patch
+          git apply car-lyrics-3x.patch
 
-      # 3) 套用补丁：车机歌词放大到约 72/66/48 sp（仅车机，手机/电视不变）
-      - name: Apply lyrics 3x patch
-        run: git apply car-lyrics-3x.patch
-
-      # 4) JDK 17（AGP 8.13 / Kotlin 2.3 需要）
+      # 3) JDK 17（AGP 8.13 / Kotlin 2.3 需要）
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      # 5) Android SDK 命令行工具
+      # 4) Android SDK 命令行工具
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      # 6) 接受许可并安装 compileSdk=36 平台（NDK/build-tools 由 AGP 自动下载）
+      # 5) 接受许可并安装 compileSdk=36 平台 + NDK 28.2.13676358（automotiveApp 需要）
       - name: Accept licenses & install SDK platform
         run: |
           yes | sdkmanager --licenses > /dev/null || true
@@ -48,13 +47,13 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      # 7) 构建车机 debug APK（系统自动签名，可直接 adb install）
+      # 6) 构建车机 debug APK（系统自动签名，可直接 adb install）
       - name: Build automotiveApp debug APK
         run: ./gradlew :automotiveApp:assembleDebug --no-daemon --stacktrace
         env:
           GRADLE_OPTS: "-Xmx4g -XX:MaxMetaspaceSize=512m"
 
-      # 8) 上传 APK 产物
+      # 7) 上传 APK 产物
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:

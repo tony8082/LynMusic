@@ -3,7 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 val sharedVersionConfig = rootProject.readSharedVersionConfig()
 val appVersionName = sharedVersionConfig.getValue("APP_VERSION_NAME")
-val androidArtifactBaseName = "LynMusic-Car-$appVersionName"
+val androidArtifactBaseName = "LynMusic-Car-XL-$appVersionName"
 
 plugins {
     alias(libs.plugins.androidApplication)
@@ -12,12 +12,12 @@ plugins {
 }
 
 android {
-    namespace = "top.iwesley.lyn.music.automotive"
+    namespace = "top.iwesley.lyn.music.automotive.xl"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
     ndkVersion = libs.versions.android.ndk.get()
 
     defaultConfig {
-        applicationId = "top.iwesley.lyn.music.automotive"
+        applicationId = "top.iwesley.lyn.music.automotive.xl"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = sharedVersionConfig.getValue("APP_VERSION_CODE").toInt()

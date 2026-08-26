@@ -56,6 +56,10 @@ jobs:
           set +e
           ./gradlew :automotiveApp:assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
           EXIT_CODE=$?
+          echo ""
+          echo "========== APK OUTPUT FILES =========="
+          find automotiveApp/build -name "*.apk" 2>/dev/null || echo "No APK files found"
+          echo "======================================"
           if [ $EXIT_CODE -ne 0 ]; then
             echo ""
             echo "========== BUILD FAILED - LAST 80 LINES =========="

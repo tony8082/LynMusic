@@ -55,7 +55,7 @@ index bade6c4..cc205ff 100644
 +                    )
                      LazyColumn(
                          modifier = Modifier
-                             .fillMaxHeight()
+                             .fillHeight()
 @@ -405,7 +420,7 @@ internal fun PlayerLyricsPane(
                                              currentPositionMs = activeLyricsPositionMs,
                                              activeColor = animatedColor,
@@ -64,7 +64,7 @@ index bade6c4..cc205ff 100644
 +                                            style = lyricsHighlightTextStyle,
                                              textAlign = TextAlign.Start,
                                              fontWeight = FontWeight.Bold,
-                                             modifier = Modifier.fillMaxWidth(),
+                                             modifier = Modifier.fillWidth(),
 @@ -413,7 +428,7 @@ internal fun PlayerLyricsPane(
                                      } else {
                                          Text(
@@ -109,7 +109,68 @@ index 1aa0ba8..fe28bed 100644
              track = track,
              onPlayerIntent = onPlayerIntent,
              pure = true,
-+            lyricsTextScale = 3f,
++            lyricsTextScale = 2.5f,
              modifier = Modifier.fillMaxSize(),
          )
      }
+diff --git a/app-version.xcconfig b/app-version.xcconfig
+index 9d08c92..c6196f6 100644
+--- a/app-version.xcconfig
++++ b/app-version.xcconfig
+@@ -1,5 +1,5 @@
+-APP_VERSION_CODE = 111
+-APP_VERSION_NAME = 1.1.1
++APP_VERSION_CODE = 11101
++APP_VERSION_NAME = 1.1.1-lyric-xl
+ APP_DESKTOP_PACKAGE_VERSION = 1.1.1
+ 
+ CURRENT_PROJECT_VERSION = $(APP_VERSION_CODE)
+diff --git a/automotiveApp/build.gradle.kts b/automotiveApp/build.gradle.kts
+index 396b9c3..9339458 100644
+--- a/automotiveApp/build.gradle.kts
++++ b/automotiveApp/build.gradle.kts
+@@ -2,7 +2,7 @@ import com.android.build.gradle.internal.api.BaseVariantOutputImpl
+ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+ 
+ val sharedVersionConfig = rootProject.readSharedVersionConfig()
+ val appVersionName = sharedVersionConfig.getValue("APP_VERSION_NAME")
+-val androidArtifactBaseName = "LynMusic-Car-$appVersionName"
++val androidArtifactBaseName = "LynMusic-Car-XL-$appVersionName"
+ 
+ plugins {
+     alias(libs.plugins.androidApplication)
+@@ -12,7 +12,7 @@ plugins {
+ 
+ android {
+-    namespace = "top.iwesley.lyn.music.automotive"
++    namespace = "top.iwesley.lyn.music.automotive.xl"
+     compileSdk = libs.versions.android.compileSdk.get().toInt()
+     ndkVersion = libs.versions.android.ndk.get()
+ 
+@@ -20,7 +20,7 @@ android {
+     defaultConfig {
+-        applicationId = "top.iwesley.lyn.music.automotive"
++        applicationId = "top.iwesley.lyn.music.automotive.xl"
+         minSdk = libs.versions.android.minSdk.get().toInt()
+         targetSdk = libs.versions.android.targetSdk.get().toInt()
+         versionCode = sharedVersionConfig.getValue("APP_VERSION_CODE").toInt()
+diff --git a/automotiveApp/src/main/res/values/strings.xml b/automotiveApp/src/main/res/values/strings.xml
+index 3036f5d..9d3b1e4 100644
+--- a/automotiveApp/src/main/res/values/strings.xml
++++ b/automotiveApp/src/main/res/values/strings.xml
+@@ -1,4 +1,4 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <resources>
+-    <string name="automotive_app_name">LynMusic</string>
++    <string name="automotive_app_name">LynMusic XL</string>
+ </resources>
+diff --git a/automotiveApp/src/main/res/values-zh/strings.xml b/automotiveApp/src/main/res/values-zh/strings.xml
+index ab79f59..80afc56 100644
+--- a/automotiveApp/src/main/res/values-zh/strings.xml
++++ b/automotiveApp/src/main/res/values-zh/strings.xml
+@@ -1,4 +1,4 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <resources>
+-    <string name="automotive_app_name">LynMusic 音乐</string>
++    <string name="automotive_app_name">LynMusic 大字版</string>
+ </resources>

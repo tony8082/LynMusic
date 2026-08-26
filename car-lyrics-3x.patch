@@ -126,7 +126,7 @@ index 9d08c92..c6196f6 100644
  
  CURRENT_PROJECT_VERSION = $(APP_VERSION_CODE)
 diff --git a/automotiveApp/build.gradle.kts b/automotiveApp/build.gradle.kts
-index 396b9c3..9339458 100644
+index 396b9c3..a1b2c3d 100644
 --- a/automotiveApp/build.gradle.kts
 +++ b/automotiveApp/build.gradle.kts
 @@ -2,7 +2,7 @@ import com.android.build.gradle.internal.api.BaseVariantOutputImpl
@@ -154,6 +154,18 @@ index 396b9c3..9339458 100644
          minSdk = libs.versions.android.minSdk.get().toInt()
          targetSdk = libs.versions.android.targetSdk.get().toInt()
          versionCode = sharedVersionConfig.getValue("APP_VERSION_CODE").toInt()
+@@ -55,11 +55,9 @@ android {
+     splits {
+         abi {
+             isEnable = true
+             reset()
+-            include("arm64-v8a", "armeabi-v7a")
+-            isUniversalApk = true
++            include("arm64-v8a")
++            isUniversalApk = false
+         }
+     }
+ 
 diff --git a/automotiveApp/src/main/res/values/strings.xml b/automotiveApp/src/main/res/values/strings.xml
 index 3036f5d..9d3b1e4 100644
 --- a/automotiveApp/src/main/res/values/strings.xml

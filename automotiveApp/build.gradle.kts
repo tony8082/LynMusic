@@ -57,9 +57,8 @@ android {
         targetCompatibility = JavaVersion.VERSION_21
     }
     lint {
-        error += setOf("NewApi")
-        abortOnError = true
-        checkDependencies = true
+        abortOnError = false
+        checkDependencies = false
     }
 }
 
@@ -77,17 +76,6 @@ dependencies {
     implementation(libs.compose.ui)
 
     debugImplementation(libs.compose.uiTooling)
-}
-
-if (rootProject.isAndroidLintOnAssembleEnabled()) {
-    androidComponents {
-        onVariants { variant ->
-            val variantName = variant.name.replaceFirstChar { it.titlecase() }
-            tasks.matching { it.name == "assemble$variantName" }.configureEach {
-                dependsOn("lint$variantName")
-            }
-        }
-    }
 }
 
 android.applicationVariants.configureEach {

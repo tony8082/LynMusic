@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'lyrics-xl.patch'
+      - 'apply_lyrics_xl.py'
       - 'automotiveApp/**'
       - '.github/workflows/build-car-xl.yml'
   workflow_dispatch:
@@ -16,9 +16,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 应用歌词放大补丁
-      - name: Apply lyrics XL patch
-        run: git apply lyrics-xl.patch --verbose
+      # 用 Python 脚本应用歌词放大修改（比 git patch 更稳健）
+      - name: Apply lyrics XL modifications
+        run: python3 apply_lyrics_xl.py
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -33,13 +33,11 @@ jobs:
         run: |
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
           sdkmanager "platforms;android-36" "ndk;28.2.13676358" --sdk_root=$ANDROID_SDK_ROOT
-          echo "NDK installed, listing ndk dir:"
-          ls $ANDROID_SDK_ROOT/ndk/ || echo "ndk dir not found"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Configure Gradle memory for CI
+      - name: Configure Gradle
         shell: bash
         run: |
           mkdir -p "$HOME/.gradle"
@@ -56,13 +54,13 @@ jobs:
       - name: Build Automotive Debug APK
         run: |
           set +e
-          ./gradlew :automotiveApp:assembleDebug --no-daemon --stacktrace --info 2>&1 | tee build.log
+          ./gradlew :automotiveApp:assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
           EXIT_CODE=$?
           if [ $EXIT_CODE -ne 0 ]; then
             echo ""
-            echo "========== BUILD FAILED - LAST 100 LINES =========="
-            tail -100 build.log
-            echo "==================================================="
+            echo "========== BUILD FAILED - LAST 80 LINES =========="
+            tail -80 build.log
+            echo "=================================================="
           fi
           exit $EXIT_CODE
 

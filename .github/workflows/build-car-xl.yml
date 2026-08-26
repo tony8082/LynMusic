@@ -26,6 +26,16 @@ jobs:
           java-version: '21'
           distribution: 'zulu'
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK
+        run: |
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          sdkmanager "platforms;android-36" "ndk;28.2.13676358" --sdk_root=$ANDROID_SDK_ROOT
+          echo "NDK installed, listing ndk dir:"
+          ls $ANDROID_SDK_ROOT/ndk/ || echo "ndk dir not found"
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
@@ -37,7 +47,6 @@ jobs:
           org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8
           kotlin.daemon.jvmargs=-Xmx1536M
           org.gradle.workers.max=2
-          # 禁用 assemble 时的 lint 检查，加快 debug 构建
           android.lintOnAssemble=false
           EOF
 
@@ -45,7 +54,17 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build Automotive Debug APK
-        run: ./gradlew :automotiveApp:assembleDebug --no-daemon --stacktrace 2>&1 | tail -200
+        run: |
+          set +e
+          ./gradlew :automotiveApp:assembleDebug --no-daemon --stacktrace --info 2>&1 | tee build.log
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo ""
+            echo "========== BUILD FAILED - LAST 100 LINES =========="
+            tail -100 build.log
+            echo "==================================================="
+          fi
+          exit $EXIT_CODE
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

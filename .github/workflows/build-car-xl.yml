@@ -1,0 +1,53 @@
+name: Build LynMusic Car XL (Lyrics 2.5x)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'lyrics-xl.patch'
+      - 'automotiveApp/**'
+      - '.github/workflows/build-car-xl.yml'
+  workflow_dispatch:
+
+jobs:
+  build-automotive-debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 应用歌词放大补丁
+      - name: Apply lyrics XL patch
+        run: git apply lyrics-xl.patch
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'zulu'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Configure Gradle memory for CI
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.gradle"
+          cat > "$HOME/.gradle/gradle.properties" <<'EOF'
+          org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8
+          kotlin.daemon.jvmargs=-Xmx1536M
+          org.gradle.workers.max=2
+          EOF
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Build Automotive Debug APK
+        run: ./gradlew :automotiveApp:assembleDebug --no-daemon --stacktrace
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LynMusic-Car-XL-debug-arm64
+          path: automotiveApp/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

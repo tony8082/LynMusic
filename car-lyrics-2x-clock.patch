@@ -1,0 +1,283 @@
+diff --git a/player/app/build.gradle.kts b/player/app/build.gradle.kts
+index 47637f1..36daf32 100644
+--- a/player/app/build.gradle.kts
++++ b/player/app/build.gradle.kts
+@@ -60,6 +60,7 @@ kotlin {
+             implementation(libs.coil.compose)
+             implementation(libs.coil.network.ktor3)
+             implementation(compose.materialIconsExtended)
++            implementation("org.jetbrains.kotlinx:kotlinx-datetime:1.6.3")
+         }
+         commonTest.dependencies {
+             implementation(libs.kotlin.test)
+diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/PlayerLyricsShareUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/PlayerLyricsShareUi.kt
+index df8756c..ee5f4ac 100644
+--- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/PlayerLyricsShareUi.kt
++++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/PlayerLyricsShareUi.kt
+@@ -88,10 +88,12 @@ import androidx.compose.ui.platform.LocalDensity
+ import androidx.compose.ui.semantics.contentDescription
+ import androidx.compose.ui.semantics.semantics
+ import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.text.TextStyle
+ import androidx.compose.ui.text.style.TextAlign
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.IntSize
+ import androidx.compose.ui.unit.dp
++import androidx.compose.ui.unit.sp
+ import top.iwesley.lyn.music.core.model.DEFAULT_LYRICS_SHARE_FONT_KEY
+ import top.iwesley.lyn.music.core.model.LyricsDocument
+ import top.iwesley.lyn.music.core.model.LyricsSearchCandidate
+@@ -129,6 +131,7 @@ internal fun PlayerLyricsPane(
+     compact: Boolean = false,
+     pure: Boolean = false,
+     mobilePlayback: Boolean = false,
++    lyricsTextScale: Float = 1f,
+ ) {
+     val listState = rememberLazyListState()
+     val lyricsPrimaryTextColor = Color.White
+@@ -330,16 +333,28 @@ internal fun PlayerLyricsPane(
+                         pure -> 600.dp
+                         else -> 520.dp
+                     }
+-                    val lyricsLineSpacing = when {
++                    val lyricsLineSpacing = (when {
+                         compact -> 12.dp
+                         pure -> 24.dp
+                         else -> 16.dp
+-                    }
+-                    val translationLineSpacing = when {
++                    }) * lyricsTextScale
++                    val translationLineSpacing = (when {
+                         compact -> 3.dp
+                         pure -> 6.dp
+                         else -> 4.dp
+-                    }
++                    }) * lyricsTextScale
++                    val lyricsHighlightTextStyle = TextStyle(
++                        fontSize = (24f * lyricsTextScale).sp,
++                        lineHeight = (32f * lyricsTextScale).sp,
++                    )
++                    val lyricsNormalTextStyle = TextStyle(
++                        fontSize = (22f * lyricsTextScale).sp,
++                        lineHeight = (30f * lyricsTextScale).sp,
++                    )
++                    val lyricsTranslationTextStyle = TextStyle(
++                        fontSize = (16f * lyricsTextScale).sp,
++                        lineHeight = (22f * lyricsTextScale).sp,
++                    )
+                     LazyColumn(
+                         modifier = Modifier
+                             .fillMaxHeight()
+@@ -405,7 +420,7 @@ internal fun PlayerLyricsPane(
+                                             currentPositionMs = activeLyricsPositionMs,
+                                             activeColor = animatedColor,
+                                             inactiveColor = lyricsSecondaryTextColor.copy(alpha = 0.78f),
+-                                            style = MaterialTheme.typography.headlineSmall,
++                                            style = lyricsHighlightTextStyle,
+                                             textAlign = TextAlign.Start,
+                                             fontWeight = FontWeight.Bold,
+                                             modifier = Modifier.fillMaxWidth(),
+@@ -413,7 +428,7 @@ internal fun PlayerLyricsPane(
+                                     } else {
+                                         Text(
+                                             text = line.text,
+-                                            style = if (isHighlighted) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleLarge,
++                                            style = if (isHighlighted) lyricsHighlightTextStyle else lyricsNormalTextStyle,
+                                             color = animatedColor,
+                                             textAlign = TextAlign.Start,
+                                             fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Normal,
+@@ -422,7 +437,7 @@ internal fun PlayerLyricsPane(
+                                     }
+                                     Text(
+                                         text = translationText,
+-                                        style = if (isHighlighted) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge,
++                                        style = lyricsTranslationTextStyle,
+                                         color = lyricsSecondaryTextColor.copy(alpha = if (isHighlighted) 0.9f else 0.72f),
+                                         textAlign = TextAlign.Start,
+                                         fontWeight = FontWeight.Normal,
+@@ -435,7 +450,7 @@ internal fun PlayerLyricsPane(
+                                     currentPositionMs = activeLyricsPositionMs,
+                                     activeColor = animatedColor,
+                                     inactiveColor = lyricsSecondaryTextColor.copy(alpha = 0.78f),
+-                                    style = MaterialTheme.typography.headlineSmall,
++                                    style = lyricsHighlightTextStyle,
+                                     textAlign = TextAlign.Start,
+                                     fontWeight = FontWeight.Bold,
+                                     modifier = lineModifier,
+@@ -443,7 +458,7 @@ internal fun PlayerLyricsPane(
+                             } else {
+                                 Text(
+                                     text = line.text,
+-                                    style = if (isHighlighted) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleLarge,
++                                    style = if (isHighlighted) lyricsHighlightTextStyle else lyricsNormalTextStyle,
+                                     color = animatedColor,
+                                     textAlign = TextAlign.Start,
+                                     fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Normal,
+diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
+index 1aa0ba8..49df5e8 100644
+--- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
++++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
+@@ -39,6 +39,7 @@ import androidx.compose.material3.Slider
+ import androidx.compose.material3.SliderDefaults
+ import androidx.compose.material3.Text
+ import androidx.compose.runtime.Composable
++import androidx.compose.runtime.LaunchedEffect
+ import androidx.compose.runtime.getValue
+ import androidx.compose.runtime.mutableStateOf
+ import androidx.compose.runtime.remember
+@@ -62,8 +63,12 @@ import androidx.compose.ui.text.TextStyle
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.Dp
++import kotlinx.datetime.Clock
++import kotlinx.datetime.TimeZone
++import kotlinx.datetime.toLocalDateTime
+ import androidx.compose.ui.unit.IntOffset
+ import androidx.compose.ui.unit.dp
++import androidx.compose.ui.unit.sp
+ import kotlin.math.roundToInt
+ import kotlin.math.roundToLong
+ import top.iwesley.lyn.music.ArtworkDecodeSize
+@@ -180,6 +185,7 @@ private fun AutomotivePlaybackPane(
+     controlsReferenceMaxWidth: Dp,
+     controlsReferenceMaxHeight: Dp,
+     onPureModeChanged: (Boolean) -> Unit,
++    carUiScale: Float = 1.5f,
+     modifier: Modifier = Modifier,
+ ) {
+     val snapshot = state.snapshot
+@@ -237,6 +243,14 @@ private fun AutomotivePlaybackPane(
+                     }
+                 }
+             }
++            Box(
++                modifier = Modifier
++                    .fillMaxWidth()
++                    .padding(top = 4.dp),
++                contentAlignment = Alignment.Center,
++            ) {
++                AutomotiveClock(scale = carUiScale)
++            }
+             AutomotiveTrackAndProgress(
+                 snapshot = snapshot,
+                 track = track,
+@@ -249,6 +263,7 @@ private fun AutomotivePlaybackPane(
+                 onlineNavigationSourceId = onlineNavigationSourceId,
+                 onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
+                 onPlayerIntent = onPlayerIntent,
++                carUiScale = carUiScale,
+                 modifier = Modifier
+                     .weight(1f)
+                     .fillMaxWidth(),
+@@ -286,6 +301,7 @@ private fun AutomotiveTrackAndProgress(
+     onlineNavigationSourceId: String?,
+     onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
+     onPlayerIntent: (PlayerIntent) -> Unit,
++    carUiScale: Float = 1.5f,
+     modifier: Modifier = Modifier,
+ ) {
+     BoxWithConstraints(
+@@ -298,7 +314,8 @@ private fun AutomotiveTrackAndProgress(
+         )
+         val compactVertical = layout.compactVertical
+         val titleStyle =
+-            if (compactVertical) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineMedium
++            (if (compactVertical) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineMedium)
++                .scaleFont(carUiScale)
+         val inlineActionButtonSize = if (compactVertical) 44.dp else 52.dp
+         val inlineActionIconSize = if (compactVertical) 24.dp else 28.dp
+         Column(
+@@ -350,7 +367,8 @@ private fun AutomotiveTrackAndProgress(
+                 AutomotiveMetadataNavigationRow(
+                     snapshot = snapshot,
+                     track = track,
+-                    style = if (compactVertical) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.titleMedium,
++                    style = (if (compactVertical) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.titleMedium)
++                    .scaleFont(carUiScale),
+                     color = Color.White.copy(alpha = 0.72f),
+                     onlineNavigationSourceId = onlineNavigationSourceId,
+                     onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
+@@ -360,6 +378,7 @@ private fun AutomotiveTrackAndProgress(
+             AutomotivePlaybackProgress(
+                 snapshot = snapshot,
+                 onPlayerIntent = onPlayerIntent,
++                carUiScale = carUiScale,
+                 modifier = Modifier.fillMaxWidth(layout.progressWidthFraction),
+             )
+         }
+@@ -567,6 +586,7 @@ private fun AutomotiveMetadataText(
+ private fun AutomotivePlaybackProgress(
+     snapshot: PlaybackSnapshot,
+     onPlayerIntent: (PlayerIntent) -> Unit,
++    carUiScale: Float = 1.5f,
+     modifier: Modifier = Modifier,
+ ) {
+     var dragFraction by remember(snapshot.currentTrack?.id, snapshot.durationMs) {
+@@ -615,12 +635,12 @@ private fun AutomotivePlaybackProgress(
+         ) {
+             Text(
+                 text = formatDuration(snapshot.positionMs),
+-                style = MaterialTheme.typography.labelLarge,
++                style = MaterialTheme.typography.labelLarge.scaleFont(carUiScale),
+                 color = Color.White.copy(alpha = 0.74f),
+             )
+             Text(
+                 text = formatDuration(snapshot.durationMs),
+-                style = MaterialTheme.typography.labelLarge,
++                style = MaterialTheme.typography.labelLarge.scaleFont(carUiScale),
+                 color = Color.White.copy(alpha = 0.74f),
+             )
+         }
+@@ -745,6 +765,7 @@ private fun AutomotiveLyricsPane(
+             track = track,
+             onPlayerIntent = onPlayerIntent,
+             pure = true,
++            lyricsTextScale = 2f,
+             modifier = Modifier.fillMaxSize(),
+         )
+     }
+@@ -1324,3 +1345,44 @@ private fun automotiveMetadataValue(
+     return primary?.trim()?.takeIf { it.isNotBlank() }
+         ?: fallback?.trim()?.takeIf { it.isNotBlank() }
+ }
++
++private fun TextStyle.scaleFont(scale: Float): TextStyle =
++    this.copy(fontSize = this.fontSize * scale)
++
++@Composable
++private fun AutomotiveClock(
++    scale: Float = 1.5f,
++    modifier: Modifier = Modifier,
++) {
++    val timeStr = remember { mutableStateOf("--:--") }
++    val dateStr = remember { mutableStateOf("") }
++    LaunchedEffect(Unit) {
++        while (true) {
++            val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
++            timeStr.value = "${now.hour.toString().padStart(2, '0')}:${now.minute.toString().padStart(2, '0')}"
++            dateStr.value = "${now.year}年${now.monthNumber}月${now.dayOfMonth}日"
++            kotlinx.coroutines.delay(30_000)
++        }
++    }
++    Column(
++        modifier = modifier,
++        horizontalAlignment = Alignment.CenterHorizontally,
++        verticalArrangement = Arrangement.Center,
++    ) {
++        Text(
++            text = timeStr.value,
++            style = MaterialTheme.typography.displayMedium.copy(
++                fontSize = (64f * scale).sp,
++                fontWeight = FontWeight.ExtraBold,
++            ),
++            color = Color.White.copy(alpha = 0.96f),
++        )
++        Text(
++            text = dateStr.value,
++            style = MaterialTheme.typography.titleMedium.copy(
++                fontSize = (18f * scale).sp,
++            ),
++            color = Color.White.copy(alpha = 0.7f),
++        )
++    }
++}

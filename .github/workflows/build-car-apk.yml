@@ -1,16 +1,16 @@
-name: Build LynMusic Car APK (Lyrics XL)
+name: Build LynMusic Car APK (Lyrics 2x)
 
-# 触发：推送到 car-lyrics-3x 分支，或手动 workflow_dispatch
+# 触发：推送到 car-lyrics-2x 分支，或手动 workflow_dispatch
 on:
   push:
-    branches: [ car-lyrics-3x ]
+    branches: [ car-lyrics-2x ]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 env:
-  LYRICS_SCALE: "3"   # 车机歌词放大倍数，可改 2.5 / 3 等（改这里即可）
+  LYRICS_SCALE: "2"   # 车机歌词放大倍数，可改 2 / 2.5 / 3 等（改这里即可）
 
 jobs:
   build-car-apk:
@@ -26,11 +26,11 @@ jobs:
           git reset --hard v1.1.1
           git --no-pager log -1 --oneline
 
-      # 2) 从本仓库取歌词补丁文件（3 倍，仅车机）并应用
+      # 2) 从本仓库取歌词补丁文件（2 倍，仅车机）并应用
       - name: Fetch & apply lyrics patch (car-only)
         run: |
-          git clone --depth 1 -b car-lyrics-3x https://github.com/tony8082/LynMusic.git fork
-          cp fork/car-lyrics-3x.patch /tmp/lyrics.patch
+          git clone --depth 1 -b car-lyrics-2x https://github.com/tony8082/LynMusic.git fork
+          cp fork/car-lyrics-2x.patch /tmp/lyrics.patch
           cd src
           if grep -q "lyricsTextScale" player/app/src/commonMain/kotlin/top/iwesley/lyn/music/PlayerLyricsShareUi.kt; then
             echo "::error:: 源码已含 lyricsTextScale，说明没有落在干净的 v1.1.1 上，停止构建"
@@ -40,19 +40,19 @@ jobs:
           # 允许用户通过 env.LYRICS_SCALE 调整倍数（补丁内默认 3f）
           sed -i "s/lyricsTextScale = 3f/lyricsTextScale = ${{ env.LYRICS_SCALE }}f/" player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 
-      # 3) 定制：独立包名(.xl) / 应用名(大字版) / 版本号 / 关 lint
+      # 3) 定制：独立包名(.xl2) / 应用名(大字版2) / 版本号 / 关 lint
       #    ⚠️ 只改 applicationId（与原版共存靠它），严禁改 namespace！
       #    AndroidManifest 里 .MainActivity 等是相对类名，按 namespace 解析；
       #    改了 namespace 而源码包名没变 → 启动时 ClassNotFoundException → 闪退。
       - name: Customize application id, app name, version
         run: |
           cd src
-          sed -i 's/APP_VERSION_CODE = 111/APP_VERSION_CODE = 11101/' app-version.xcconfig
-          sed -i 's/APP_VERSION_NAME = 1.1.1/APP_VERSION_NAME = 1.1.1-lyric-xl/' app-version.xcconfig
-          sed -i 's/applicationId = "top.iwesley.lyn.music.automotive"/applicationId = "top.iwesley.lyn.music.automotive.xl"/' automotiveApp/build.gradle.kts
-          sed -i 's/LynMusic-Car-$appVersionName/LynMusic-Car-XL-$appVersionName/' automotiveApp/build.gradle.kts
-          sed -i 's/<string name="automotive_app_name">LynMusic<\/string>/<string name="automotive_app_name">LynMusic XL<\/string>/' automotiveApp/src/main/res/values/strings.xml
-          sed -i 's/<string name="automotive_app_name">LynMusic 音乐<\/string>/<string name="automotive_app_name">LynMusic 大字版<\/string>/' automotiveApp/src/main/res/values-zh/strings.xml
+          sed -i 's/APP_VERSION_CODE = 111/APP_VERSION_CODE = 11102/' app-version.xcconfig
+          sed -i 's/APP_VERSION_NAME = 1.1.1/APP_VERSION_NAME = 1.1.1-lyric-2x/' app-version.xcconfig
+          sed -i 's/applicationId = "top.iwesley.lyn.music.automotive"/applicationId = "top.iwesley.lyn.music.automotive.xl2"/' automotiveApp/build.gradle.kts
+          sed -i 's/LynMusic-Car-$appVersionName/LynMusic-Car-XL2-$appVersionName/' automotiveApp/build.gradle.kts
+          sed -i 's/<string name="automotive_app_name">LynMusic<\/string>/<string name="automotive_app_name">LynMusic XL 2<\/string>/' automotiveApp/src/main/res/values/strings.xml
+          sed -i 's/<string name="automotive_app_name">LynMusic 音乐<\/string>/<string name="automotive_app_name">LynMusic 大字版2<\/string>/' automotiveApp/src/main/res/values-zh/strings.xml
           echo "lyn.android.lintOnAssemble=false" > local.properties
 
       # 4) 生成 Release 签名 keystore（CI 内临时，仅用于本次构建）
@@ -101,6 +101,6 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LynMusic-Car-XL-release-universal
+          name: LynMusic-Car-XL2-release-universal
           path: src/automotiveApp/build/outputs/apk/release/*universal*.apk
           if-no-files-found: error

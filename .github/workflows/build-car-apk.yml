@@ -26,38 +26,31 @@ jobs:
           git reset --hard v1.1.1
           git --no-pager log -1 --oneline
 
-      # 2) 内嵌歌词补丁（base64，3 倍，仅车机），解码后应用
-      - name: Apply embedded lyrics patch (car-only)
+      # 2) 从本仓库取歌词补丁文件（3 倍，仅车机）并应用
+      - name: Fetch & apply lyrics patch (car-only)
         run: |
-          : > /tmp/lyrics.b64
-          echo 'ZGlmZiAtLWdpdCBhL3BsYXllci9hcHAvc3JjL2NvbW1vbk1haW4va290bGluL3RvcC9pd2VzbGV5L2x5bi9tdXNpYy9QbGF5ZXJMeXJpY3NTaGFyZVVpLmt0IGIvcGxheWVyL2FwcC9zcmMvY29tbW9uTWFpbi9rb3RsaW4vdG9wL2l3ZXNsZXkvbHluL211c2ljL1BsYXllckx5cmljc1NoYXJlVWkua3QKaW5kZXggYmFkZTZjNC4uY2MyMDVmZiAxMDA2NDQKLS0tIGEvcGxheWVyL2FwcC9zcmMvY29tbW9uTWFpbi9rb3RsaW4vdG9wL2l3ZXNsZXkvbHluL211c2ljL1BsYXllckx5cmljc1NoYXJlVWkua3QKKysrIGIvcGxheWVyL2FwcC9zcmMvY29tbW9uTWFpbi9rb3RsaW4vdG9wL2l3ZXNsZXkvbHluL211c2ljL1BsYXllckx5cmljc1NoYXJlVWkua3QKQEAgLTg4LDEwICs4OCwxMiBAQCBpbXBvcnQgYW5kcm9pZHguY29tcG9zZS51aS5wbGF0Zm9ybS5Mb2NhbERlbnNpdHkKIGltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnVpLnNlbWFudGljcy5jb250ZW50RGVzY3JpcHRpb24KIGltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnVpLnNlbWFudGljcy5zZW1hbnRpY3MKIGltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnVpLnRleHQuZm9udC5Gb250V2VpZ2h0CitpbXBvcnQgYW5kcm9pZHguY29tcG9zZS51aS50ZXh0LlRleHRTdHlsZQogaW1wb3J0IGFuZHJvaWR4LmNvbXBvc2UudWkudGV4dC5zdHlsZS5UZXh0QWxpZ24KIGltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnVpLnRleHQuc3R5bGUuVGV4dE92ZXJmbG93CiBpbXBvcnQgYW5kcm9pZHguY29tcG9zZS51aS51bml0LkludFNpemUKIGltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnVpLnVuaXQuZHAKK2ltcG9ydCBhbmRyb2lkeC5jb21wb3NlLnVpLnVuaXQuc3AKIGltcG9ydCB0b3AuaXdlc2xleS5seW4ubXVzaWMuY29yZS5tb2RlbC5ERUZBVUxUX0xZUklDU19TSEFSRV9GT05UX0tFWQogaW1wb3J0IHRvcC5pd2VzbGV5Lmx5bi5tdXNpYy5jb3JlLm1vZGVsLkx5cmljc0RvY3VtZW50CiBpbXBvcnQgdG9wLml3ZXNsZXkubHluLm11c2ljLmNvcmUubW9kZWwuTHlyaWNzU2VhcmNoQ2FuZGlkYXRlCkBAIC0xMjksNiAr' >> /tmp/lyrics.b64
-          echo 'MTMxLDcgQEAgaW50ZXJuYWwgZnVuIFBsYXllckx5cmljc1BhbmUoCiAgICAgY29tcGFjdDogQm9vbGVhbiA9IGZhbHNlLAogICAgIHB1cmU6IEJvb2xlYW4gPSBmYWxzZSwKICAgICBtb2JpbGVQbGF5YmFjazogQm9vbGVhbiA9IGZhbHNlLAorICAgIGx5cmljc1RleHRTY2FsZTogRmxvYXQgPSAxZiwKICkgewogICAgIHZhbCBsaXN0U3RhdGUgPSByZW1lbWJlckxhenlMaXN0U3RhdGUoKQogICAgIHZhbCBseXJpY3NQcmltYXJ5VGV4dENvbG9yID0gQ29sb3IuV2hpdGUKQEAgLTMzMCwxNiArMzMzLDI4IEBAIGludGVybmFsIGZ1biBQbGF5ZXJMeXJpY3NQYW5lKAogICAgICAgICAgICAgICAgICAgICAgICAgcHVyZSAtPiA2MDAuZHAKICAgICAgICAgICAgICAgICAgICAgICAgIGVsc2UgLT4gNTIwLmRwCiAgICAgICAgICAgICAgICAgICAgIH0KLSAgICAgICAgICAgICAgICAgICAgdmFsIGx5cmljc0xpbmVTcGFjaW5nID0gd2hlbiB7CisgICAgICAgICAgICAgICAgICAgIHZhbCBseXJpY3NMaW5lU3BhY2luZyA9ICh3aGVuIHsKICAgICAgICAgICAgICAgICAgICAgICAgIGNvbXBhY3QgLT4gMTIuZHAKICAgICAgICAgICAgICAgICAgICAgICAgIHB1cmUgLT4gMjQuZHAKICAgICAgICAgICAgICAgICAgICAgICAgIGVsc2UgLT4gMTYuZHAKLSAgICAgICAgICAgICAgICAgICAgfQotICAgICAgICAgICAgICAgICAgICB2YWwgdHJhbnNsYXRpb25MaW5lU3BhY2luZyA9IHdoZW4geworICAgICAgICAgICAgICAgICAgICB9KSAqIGx5cmljc1RleHRTY2FsZQorICAgICAgICAgICAgICAgICAgICB2YWwgdHJhbnNsYXRpb25MaW5lU3BhY2luZyA9ICh3aGVuIHsKICAgICAgICAgICAgICAgICAgICAgICAgIGNvbXBhY3QgLT4gMy5kcAogICAgICAgICAgICAgICAgICAgICAgICAgcHVyZSAtPiA2LmRwCiAgICAgICAgICAgICAgICAgICAgICAgICBlbHNlIC0+IDQuZHAKLSAgICAgICAgICAgICAgICAgICAgfQorICAgICAgICAgICAgICAgICAgICB9KSAqIGx5cmljc1RleHRTY2FsZQorICAgICAgICAgICAgICAgICAgICB2YWwgbHlyaWNzSGlnaGxpZ2h0' >> /tmp/lyrics.b64
-          echo 'VGV4dFN0eWxlID0gVGV4dFN0eWxlKAorICAgICAgICAgICAgICAgICAgICAgICAgZm9udFNpemUgPSAoMjRmICogbHlyaWNzVGV4dFNjYWxlKS5zcCwKKyAgICAgICAgICAgICAgICAgICAgICAgIGxpbmVIZWlnaHQgPSAoMzJmICogbHlyaWNzVGV4dFNjYWxlKS5zcCwKKyAgICAgICAgICAgICAgICAgICAgKQorICAgICAgICAgICAgICAgICAgICB2YWwgbHlyaWNzTm9ybWFsVGV4dFN0eWxlID0gVGV4dFN0eWxlKAorICAgICAgICAgICAgICAgICAgICAgICAgZm9udFNpemUgPSAoMjJmICogbHlyaWNzVGV4dFNjYWxlKS5zcCwKKyAgICAgICAgICAgICAgICAgICAgICAgIGxpbmVIZWlnaHQgPSAoMzBmICogbHlyaWNzVGV4dFNjYWxlKS5zcCwKKyAgICAgICAgICAgICAgICAgICAgKQorICAgICAgICAgICAgICAgICAgICB2YWwgbHlyaWNzVHJhbnNsYXRpb25UZXh0U3R5bGUgPSBUZXh0U3R5bGUoCisgICAgICAgICAgICAgICAgICAgICAgICBmb250U2l6ZSA9ICgxNmYgKiBseXJpY3NUZXh0U2NhbGUpLnNwLAorICAgICAgICAgICAgICAgICAgICAgICAgbGluZUhlaWdodCA9ICgyMmYgKiBseXJpY3NUZXh0U2NhbGUpLnNwLAorICAgICAgICAgICAgICAgICAgICApCiAgICAgICAgICAgICAgICAgICAgIExhenlDb2x1bW4oCiAgICAgICAgICAgICAgICAgICAgICAgICBtb2RpZmllciA9IE1vZGlmaWVyCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgLmZpbGxNYXhIZWlnaHQoKQpAQCAtNDA1LDcgKzQyMCw3IEBAIGludGVybmFsIGZ1biBQbGF5ZXJMeXJpY3NQYW5lKAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBjdXJyZW50UG9zaXRpb25NcyA9IGFjdGl2ZUx5cmljc1Bvc2l0aW9uTXMsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGFjdGl2ZUNvbG9yID0gYW5pbWF0ZWRDb2xvciwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgaW5hY3RpdmVDb2xvciA9IGx5cmljc1NlY29uZGFyeVRleHRDb2xvci5jb3B5KGFscGhhID0gMC43OGYp' >> /tmp/lyrics.b64
-          echo 'LAotICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBzdHlsZSA9IE1hdGVyaWFsVGhlbWUudHlwb2dyYXBoeS5oZWFkbGluZVNtYWxsLAorICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBzdHlsZSA9IGx5cmljc0hpZ2hsaWdodFRleHRTdHlsZSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgdGV4dEFsaWduID0gVGV4dEFsaWduLlN0YXJ0LAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBmb250V2VpZ2h0ID0gRm9udFdlaWdodC5Cb2xkLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBtb2RpZmllciA9IE1vZGlmaWVyLmZpbGxNYXhXaWR0aCgpLApAQCAtNDEzLDcgKzQyOCw3IEBAIGludGVybmFsIGZ1biBQbGF5ZXJMeXJpY3NQYW5lKAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfSBlbHNlIHsKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBUZXh0KAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB0ZXh0ID0gbGluZS50ZXh0LAotICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBzdHlsZSA9IGlmIChpc0hpZ2hsaWdodGVkKSBNYXRlcmlhbFRoZW1lLnR5cG9ncmFwaHkuaGVhZGxpbmVTbWFsbCBlbHNlIE1hdGVyaWFsVGhlbWUudHlwb2dyYXBoeS50aXRsZUxhcmdlLAorICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBzdHlsZSA9IGlmIChpc0hpZ2hsaWdodGVkKSBseXJpY3NIaWdobGlnaHRUZXh0U3R5bGUgZWxzZSBseXJpY3NOb3JtYWxUZXh0U3R5bGUsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGNvbG9yID0gYW5pbWF0ZWRDb2xvciwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgdGV4dEFsaWduID0gVGV4dEFsaWduLlN0YXJ0LAogICAgICAgICAgICAgICAgICAg' >> /tmp/lyrics.b64
-          echo 'ICAgICAgICAgICAgICAgICAgICAgICAgICBmb250V2VpZ2h0ID0gaWYgKGlzSGlnaGxpZ2h0ZWQpIEZvbnRXZWlnaHQuQm9sZCBlbHNlIEZvbnRXZWlnaHQuTm9ybWFsLApAQCAtNDIyLDcgKzQzNyw3IEBAIGludGVybmFsIGZ1biBQbGF5ZXJMeXJpY3NQYW5lKAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgVGV4dCgKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB0ZXh0ID0gdHJhbnNsYXRpb25UZXh0LAotICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHN0eWxlID0gaWYgKGlzSGlnaGxpZ2h0ZWQpIE1hdGVyaWFsVGhlbWUudHlwb2dyYXBoeS50aXRsZU1lZGl1bSBlbHNlIE1hdGVyaWFsVGhlbWUudHlwb2dyYXBoeS5ib2R5TGFyZ2UsCisgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgc3R5bGUgPSBseXJpY3NUcmFuc2xhdGlvblRleHRTdHlsZSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBjb2xvciA9IGx5cmljc1NlY29uZGFyeVRleHRDb2xvci5jb3B5KGFscGhhID0gaWYgKGlzSGlnaGxpZ2h0ZWQpIDAuOWYgZWxzZSAwLjcyZiksCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgdGV4dEFsaWduID0gVGV4dEFsaWduLlN0YXJ0LAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGZvbnRXZWlnaHQgPSBGb250V2VpZ2h0Lk5vcm1hbCwKQEAgLTQzNSw3ICs0NTAsNyBAQCBpbnRlcm5hbCBmdW4gUGxheWVyTHlyaWNzUGFuZSgKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGN1cnJlbnRQb3NpdGlvbk1zID0gYWN0aXZlTHlyaWNzUG9zaXRpb25NcywKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGFjdGl2ZUNvbG9yID0gYW5pbWF0ZWRDb2xvciwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGluYWN0aXZlQ29sb3IgPSBseXJpY3NTZWNvbmRh' >> /tmp/lyrics.b64
-          echo 'cnlUZXh0Q29sb3IuY29weShhbHBoYSA9IDAuNzhmKSwKLSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHN0eWxlID0gTWF0ZXJpYWxUaGVtZS50eXBvZ3JhcGh5LmhlYWRsaW5lU21hbGwsCisgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBzdHlsZSA9IGx5cmljc0hpZ2hsaWdodFRleHRTdHlsZSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHRleHRBbGlnbiA9IFRleHRBbGlnbi5TdGFydCwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGZvbnRXZWlnaHQgPSBGb250V2VpZ2h0LkJvbGQsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBtb2RpZmllciA9IGxpbmVNb2RpZmllciwKQEAgLTQ0Myw3ICs0NTgsNyBAQCBpbnRlcm5hbCBmdW4gUGxheWVyTHlyaWNzUGFuZSgKICAgICAgICAgICAgICAgICAgICAgICAgICAgICB9IGVsc2UgewogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBUZXh0KAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgdGV4dCA9IGxpbmUudGV4dCwKLSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHN0eWxlID0gaWYgKGlzSGlnaGxpZ2h0ZWQpIE1hdGVyaWFsVGhlbWUudHlwb2dyYXBoeS5oZWFkbGluZVNtYWxsIGVsc2UgTWF0ZXJpYWxUaGVtZS50eXBvZ3JhcGh5LnRpdGxlTGFyZ2UsCisgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBzdHlsZSA9IGlmIChpc0hpZ2hsaWdodGVkKSBseXJpY3NIaWdobGlnaHRUZXh0U3R5bGUgZWxzZSBseXJpY3NOb3JtYWxUZXh0U3R5bGUsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBjb2xvciA9IGFuaW1hdGVkQ29sb3IsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB0ZXh0QWxpZ24gPSBUZXh0QWxpZ24uU3RhcnQsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBmb250V2VpZ2h0ID0gaWYgKGlzSGlnaGxpZ2h0ZWQpIEZvbnRXZWlnaHQuQm9sZCBlbHNlIEZvbnRX' >> /tmp/lyrics.b64
-          echo 'ZWlnaHQuTm9ybWFsLApkaWZmIC0tZ2l0IGEvcGxheWVyL2FwcC9zcmMvY29tbW9uTWFpbi9rb3RsaW4vdG9wL2l3ZXNsZXkvbHluL211c2ljL2F1dG9tb3RpdmUvQXV0b21vdGl2ZVBsYXllclVpLmt0IGIvcGxheWVyL2FwcC9zcmMvY29tbW9uTWFpbi9rb3RsaW4vdG9wL2l3ZXNsZXkvbHluL211c2ljL2F1dG9tb3RpdmUvQXV0b21vdGl2ZVBsYXllclVpLmt0CmluZGV4IDFhYTBiYTguLmZlMjhiZWQgMTAwNjQ0Ci0tLSBhL3BsYXllci9hcHAvc3JjL2NvbW1vbk1haW4va290bGluL3RvcC9pd2VzbGV5L2x5bi9tdXNpYy9hdXRvbW90aXZlL0F1dG9tb3RpdmVQbGF5ZXJVaS5rdAorKysgYi9wbGF5ZXIvYXBwL3NyYy9jb21tb25NYWluL2tvdGxpbi90b3AvaXdlc2xleS9seW4vbXVzaWMvYXV0b21vdGl2ZS9BdXRvbW90aXZlUGxheWVyVWkua3QKQEAgLTc0NSw2ICs3NDUsNyBAQCBwcml2YXRlIGZ1biBBdXRvbW90aXZlTHlyaWNzUGFuZSgKICAgICAgICAgICAgIHRyYWNrID0gdHJhY2ssCiAgICAgICAgICAgICBvblBsYXllckludGVudCA9IG9uUGxheWVySW50ZW50LAogICAgICAgICAgICAgcHVyZSA9IHRydWUsCisgICAgICAgICAgICBseXJpY3NUZXh0U2NhbGUgPSAzZiwKICAgICAgICAgICAgIG1vZGlmaWVyID0gTW9kaWZpZXIuZmlsbE1heFNpemUoKSwKICAgICAgICAgKQogICAgIH0K' >> /tmp/lyrics.b64
-          base64 -d /tmp/lyrics.b64 > /tmp/lyrics.patch
+          git clone --depth 1 -b car-lyrics-3x https://github.com/tony8082/LynMusic.git fork
+          cp fork/car-lyrics-3x.patch /tmp/lyrics.patch
           cd src
           if grep -q "lyricsTextScale" player/app/src/commonMain/kotlin/top/iwesley/lyn/music/PlayerLyricsShareUi.kt; then
             echo "::error:: 源码已含 lyricsTextScale，说明没有落在干净的 v1.1.1 上，停止构建"
             exit 1
           fi
           git apply /tmp/lyrics.patch
-          # 允许用户通过 env.LYRICS_SCALE 调整倍数（默认补丁内是 3f）
+          # 允许用户通过 env.LYRICS_SCALE 调整倍数（补丁内默认 3f）
           sed -i "s/lyricsTextScale = 3f/lyricsTextScale = ${{ env.LYRICS_SCALE }}f/" player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 
-      # 3) 定制：独立包名(.xl) / 应用名(大字版) / 版本号 / 单 arm64 / 关 lint
-      - name: Customize package id, app name, version, abi
+      # 3) 定制：独立包名(.xl) / 应用名(大字版) / 版本号 / 关 lint
+      #    ⚠️ 只改 applicationId（与原版共存靠它），严禁改 namespace！
+      #    AndroidManifest 里 .MainActivity 等是相对类名，按 namespace 解析；
+      #    改了 namespace 而源码包名没变 → 启动时 ClassNotFoundException → 闪退。
+      - name: Customize application id, app name, version
         run: |
           cd src
           sed -i 's/APP_VERSION_CODE = 111/APP_VERSION_CODE = 11101/' app-version.xcconfig
           sed -i 's/APP_VERSION_NAME = 1.1.1/APP_VERSION_NAME = 1.1.1-lyric-xl/' app-version.xcconfig
-          sed -i 's/namespace = "top.iwesley.lyn.music.automotive"/namespace = "top.iwesley.lyn.music.automotive.xl"/' automotiveApp/build.gradle.kts
           sed -i 's/applicationId = "top.iwesley.lyn.music.automotive"/applicationId = "top.iwesley.lyn.music.automotive.xl"/' automotiveApp/build.gradle.kts
           sed -i 's/LynMusic-Car-$appVersionName/LynMusic-Car-XL-$appVersionName/' automotiveApp/build.gradle.kts
-          sed -i 's/include("arm64-v8a", "armeabi-v7a")/include("arm64-v8a")/' automotiveApp/build.gradle.kts
-          sed -i 's/isUniversalApk = true/isUniversalApk = false/' automotiveApp/build.gradle.kts
           sed -i 's/<string name="automotive_app_name">LynMusic<\/string>/<string name="automotive_app_name">LynMusic XL<\/string>/' automotiveApp/src/main/res/values/strings.xml
           sed -i 's/<string name="automotive_app_name">LynMusic 音乐<\/string>/<string name="automotive_app_name">LynMusic 大字版<\/string>/' automotiveApp/src/main/res/values-zh/strings.xml
           echo "lyn.android.lintOnAssemble=false" > local.properties
@@ -70,12 +63,12 @@ jobs:
             -storepass android -keypass android \
             -dname "CN=LynMusic XL, OU=Car, O=Lyn, C=CN"
 
-      # 5) JDK 17（AGP 8.13 / Kotlin 2.3 需要）
-      - name: Set up JDK 17
+      # 5) JDK 21（AGP 8.13 / Kotlin 2.3，jvmTarget=21，与上游一致）
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
 
       # 6) Android SDK
       - name: Set up Android SDK
@@ -90,8 +83,10 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x src/gradlew
 
-      # 8) 构建车机 Release APK（单 arm64-v8a，自签）
-      - name: Build automotiveApp release APK (arm64-v8a only)
+      # 8) 构建车机 Release APK
+      #    保留上游 ABI 配置（arm64-v8a + armeabi-v7a + universal），
+      #    兼容 32 位车机固件；上游官方 Car APK 也发 universal 版。
+      - name: Build automotiveApp release APK (universal)
         run: |
           cd src
           ./gradlew :automotiveApp:assembleRelease --no-daemon --no-configuration-cache --stacktrace
@@ -102,10 +97,10 @@ jobs:
           ANDROID_SIGNING_KEY_PASSWORD: android
           GRADLE_OPTS: "-Xmx4g -XX:MaxMetaspaceSize=512m"
 
-      # 9) 上传 APK 产物
+      # 9) 上传 universal APK 产物（通用包，车机直接装这个）
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LynMusic-Car-XL-release-arm64
-          path: src/automotiveApp/build/outputs/apk/release/*.apk
+          name: LynMusic-Car-XL-release-universal
+          path: src/automotiveApp/build/outputs/apk/release/*universal*.apk
           if-no-files-found: error

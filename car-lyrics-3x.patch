@@ -55,7 +55,7 @@ index bade6c4..cc205ff 100644
 +                    )
                      LazyColumn(
                          modifier = Modifier
-                             .fillHeight()
+                             .fillMaxHeight()
 @@ -405,7 +420,7 @@ internal fun PlayerLyricsPane(
                                              currentPositionMs = activeLyricsPositionMs,
                                              activeColor = animatedColor,
@@ -64,7 +64,7 @@ index bade6c4..cc205ff 100644
 +                                            style = lyricsHighlightTextStyle,
                                              textAlign = TextAlign.Start,
                                              fontWeight = FontWeight.Bold,
-                                             modifier = Modifier.fillWidth(),
+                                             modifier = Modifier.fillMaxWidth(),
 @@ -413,7 +428,7 @@ internal fun PlayerLyricsPane(
                                      } else {
                                          Text(
@@ -109,7 +109,7 @@ index 1aa0ba8..fe28bed 100644
              track = track,
              onPlayerIntent = onPlayerIntent,
              pure = true,
-+            lyricsTextScale = 2.5f,
++            lyricsTextScale = 3f,
              modifier = Modifier.fillMaxSize(),
          )
      }

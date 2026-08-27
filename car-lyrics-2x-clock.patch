@@ -129,7 +129,7 @@ index 1aa0ba8..49df5e8 100644
  import androidx.compose.ui.text.font.FontWeight
  import androidx.compose.ui.text.style.TextOverflow
  import androidx.compose.ui.unit.Dp
-+import kotlinx.datetime.Clock
++import kotlin.time.Clock
 +import kotlinx.datetime.TimeZone
 +import kotlinx.datetime.toLocalDateTime
  import androidx.compose.ui.unit.IntOffset
@@ -255,7 +255,7 @@ index 1aa0ba8..49df5e8 100644
 +        while (true) {
 +            val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
 +            timeStr.value = "${now.hour.toString().padStart(2, '0')}:${now.minute.toString().padStart(2, '0')}"
-+            dateStr.value = "${now.year}年${now.monthNumber}月${now.dayOfMonth}日"
++            dateStr.value = "${now.year}年${now.month}月${now.day}日"
 +            kotlinx.coroutines.delay(30_000)
 +        }
 +    }

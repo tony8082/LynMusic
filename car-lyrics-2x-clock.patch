@@ -114,7 +114,7 @@ index df8756c..ee5f4ac 100644
                                      textAlign = TextAlign.Start,
                                      fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Normal,
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
-index 1aa0ba8..4c0500b 100644
+index 1aa0ba8..547e8ca 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 @@ -39,6 +39,7 @@ import androidx.compose.material3.Slider
@@ -180,7 +180,7 @@ index 1aa0ba8..4c0500b 100644
                          )
                          Row(
                              verticalAlignment = Alignment.CenterVertically,
-@@ -224,17 +239,33 @@ private fun AutomotivePlaybackPane(
+@@ -224,17 +239,25 @@ private fun AutomotivePlaybackPane(
                                  contentDescription = "搜索歌词",
                                  onClick = { onPlayerIntent(PlayerIntent.OpenManualLyricsSearch) },
                                  buttonSize = topControlButtonSize,
@@ -198,25 +198,17 @@ index 1aa0ba8..4c0500b 100644
                          }
                      }
 +                } else {
-+                    // 最大化页面：大返回按钮（左上）+ 时钟（居中，不含日期）
++                    // 最大化页面：只留时钟（居中），退出靠双指点击
 +                    Box(
 +                        modifier = Modifier.fillMaxSize(),
 +                        contentAlignment = Alignment.Center,
 +                    ) {
 +                        AutomotiveClock(scale = carUiScale)
-+                        AutomotiveRoundIconButton(
-+                            icon = Icons.Rounded.KeyboardArrowDown,
-+                            contentDescription = "退出最大化",
-+                            onClick = { onPureModeChanged(false) },
-+                            buttonSize = AutomotiveMaximizeBackButtonSize,
-+                            iconSize = AutomotiveMaximizeBackIconSize,
-+                            modifier = Modifier.align(Alignment.CenterStart),
-+                        )
 +                    }
                  }
              }
              AutomotiveTrackAndProgress(
-@@ -249,6 +280,7 @@ private fun AutomotivePlaybackPane(
+@@ -249,6 +272,7 @@ private fun AutomotivePlaybackPane(
                  onlineNavigationSourceId = onlineNavigationSourceId,
                  onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
                  onPlayerIntent = onPlayerIntent,
@@ -224,7 +216,7 @@ index 1aa0ba8..4c0500b 100644
                  modifier = Modifier
                      .weight(1f)
                      .fillMaxWidth(),
-@@ -286,19 +318,29 @@ private fun AutomotiveTrackAndProgress(
+@@ -286,19 +310,29 @@ private fun AutomotiveTrackAndProgress(
      onlineNavigationSourceId: String?,
      onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -241,9 +233,9 @@ index 1aa0ba8..4c0500b 100644
              maxHeight = maxHeight,
          )
 +        val layout = if (isPureMode) {
-+            // 最大化页面：封面加大，配合精简布局
++            // 最大化页面：封面尽量填满左侧宽度
 +            baseLayout.copy(
-+                artworkSize = minOf(baseLayout.artworkSize * AutomotivePureModeArtworkScale, 460.dp),
++                artworkSize = minOf(maxWidth * 0.92f, maxHeight * 0.72f).coerceAtMost(560.dp),
 +            )
 +        } else {
 +            baseLayout
@@ -256,7 +248,7 @@ index 1aa0ba8..4c0500b 100644
          val inlineActionButtonSize = if (compactVertical) 44.dp else 52.dp
          val inlineActionIconSize = if (compactVertical) 24.dp else 28.dp
          Column(
-@@ -336,32 +378,38 @@ private fun AutomotiveTrackAndProgress(
+@@ -336,32 +370,39 @@ private fun AutomotiveTrackAndProgress(
                          overflow = TextOverflow.Ellipsis,
                          modifier = Modifier.weight(1f, fill = false),
                      )
@@ -292,6 +284,16 @@ index 1aa0ba8..4c0500b 100644
                      color = Color.White.copy(alpha = 0.72f),
                      onlineNavigationSourceId = onlineNavigationSourceId,
                      onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
++                    showAlbum = !isPureMode,
++                )
++            }
++            if (!isPureMode) {
++                Spacer(Modifier.height(layout.progressTopGap))
++                AutomotivePlaybackProgress(
++                    snapshot = snapshot,
++                    onPlayerIntent = onPlayerIntent,
++                    carUiScale = carUiScale,
++                    modifier = Modifier.fillMaxWidth(layout.progressWidthFraction),
                  )
              }
 -            Spacer(Modifier.height(layout.progressTopGap))
@@ -300,19 +302,27 @@ index 1aa0ba8..4c0500b 100644
 -                onPlayerIntent = onPlayerIntent,
 -                modifier = Modifier.fillMaxWidth(layout.progressWidthFraction),
 -            )
-+            if (!isPureMode) {
-+                Spacer(Modifier.height(layout.progressTopGap))
-+                AutomotivePlaybackProgress(
-+                    snapshot = snapshot,
-+                    onPlayerIntent = onPlayerIntent,
-+                    carUiScale = carUiScale,
-+                    modifier = Modifier.fillMaxWidth(layout.progressWidthFraction),
-+                )
-+            }
          }
      }
  }
-@@ -567,6 +615,7 @@ private fun AutomotiveMetadataText(
+@@ -475,6 +516,7 @@ private fun AutomotiveMetadataNavigationRow(
+     onlineNavigationSourceId: String?,
+     onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
+     modifier: Modifier = Modifier,
++    showAlbum: Boolean = true,
+ ) {
+     val navigationTargets = remember(
+         snapshot.currentDisplayAlbumTitle,
+@@ -517,7 +559,7 @@ private fun AutomotiveMetadataNavigationRow(
+             onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
+             modifier = Modifier.weight(1f, fill = false),
+         )
+-        if (albumLabel != null) {
++        if (showAlbum && albumLabel != null) {
+             Text(
+                 text = " · ",
+                 style = style,
+@@ -567,6 +609,7 @@ private fun AutomotiveMetadataText(
  private fun AutomotivePlaybackProgress(
      snapshot: PlaybackSnapshot,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -320,7 +330,7 @@ index 1aa0ba8..4c0500b 100644
      modifier: Modifier = Modifier,
  ) {
      var dragFraction by remember(snapshot.currentTrack?.id, snapshot.durationMs) {
-@@ -615,12 +664,12 @@ private fun AutomotivePlaybackProgress(
+@@ -615,12 +658,12 @@ private fun AutomotivePlaybackProgress(
          ) {
              Text(
                  text = formatDuration(snapshot.positionMs),
@@ -335,7 +345,7 @@ index 1aa0ba8..4c0500b 100644
                  color = Color.White.copy(alpha = 0.74f),
              )
          }
-@@ -745,6 +794,7 @@ private fun AutomotiveLyricsPane(
+@@ -745,6 +788,7 @@ private fun AutomotiveLyricsPane(
              track = track,
              onPlayerIntent = onPlayerIntent,
              pure = true,
@@ -343,18 +353,18 @@ index 1aa0ba8..4c0500b 100644
              modifier = Modifier.fillMaxSize(),
          )
      }
-@@ -1190,6 +1240,10 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
+@@ -1190,6 +1234,10 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
  private val AutomotiveFiveControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 5
  private val AutomotivePrimaryControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 3
  private val AutomotiveTopControlsSlotHeight = 64.dp
-+private val AutomotivePureModeTopSlotHeight = 112.dp
++private val AutomotivePureModeTopSlotHeight = 80.dp
 +private val AutomotiveMaximizeBackButtonSize = 84.dp
 +private val AutomotiveMaximizeBackIconSize = 48.dp
 +private const val AutomotivePureModeArtworkScale = 1.25f
  private const val AutomotivePureModeSecondPointerWindowMillis = 150L
  private const val AutomotivePureModeTapTimeoutMillis = 300L
  private const val AutomotivePlaybackPaneWeight = 0.46f
-@@ -1324,3 +1378,35 @@ private fun automotiveMetadataValue(
+@@ -1324,3 +1372,35 @@ private fun automotiveMetadataValue(
      return primary?.trim()?.takeIf { it.isNotBlank() }
          ?: fallback?.trim()?.takeIf { it.isNotBlank() }
  }
@@ -390,3 +400,62 @@ index 1aa0ba8..4c0500b 100644
 +        )
 +    }
 +}
+diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/ui/LynMusicTheme.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/ui/LynMusicTheme.kt
+index 7e3cc1d..85a20c1 100644
+--- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/ui/LynMusicTheme.kt
++++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/ui/LynMusicTheme.kt
+@@ -12,12 +12,42 @@ import androidx.compose.runtime.ReadOnlyComposable
+ import androidx.compose.runtime.remember
+ import androidx.compose.runtime.staticCompositionLocalOf
+ import androidx.compose.ui.graphics.Color
++import androidx.compose.ui.text.TextStyle
+ import top.iwesley.lyn.music.core.model.AppThemePalette
+ import top.iwesley.lyn.music.core.model.AppThemeTextPalette
+ import top.iwesley.lyn.music.core.model.AppThemeTokens
+ import top.iwesley.lyn.music.core.model.CLASSIC_APP_THEME_TOKENS
+ import top.iwesley.lyn.music.core.model.deriveAppThemePalette
+ 
++// 车机版：全局 Typography 字号缩放因子（影响设置/曲库/我的等非播放页面）
++// 播放页 Text 均用 .copy(fontSize=...) 显式覆盖，不受此缩放影响
++private const val CarTypographyScale = 1.5f
++
++private fun scaledTypography(factor: Float): Typography {
++    val base = Typography()
++    fun TextStyle.scaled() = copy(
++        fontSize = fontSize * factor,
++        lineHeight = lineHeight * factor,
++    )
++    return Typography(
++        displayLarge = base.displayLarge.scaled(),
++        displayMedium = base.displayMedium.scaled(),
++        displaySmall = base.displaySmall.scaled(),
++        headlineLarge = base.headlineLarge.scaled(),
++        headlineMedium = base.headlineMedium.scaled(),
++        headlineSmall = base.headlineSmall.scaled(),
++        titleLarge = base.titleLarge.scaled(),
++        titleMedium = base.titleMedium.scaled(),
++        titleSmall = base.titleSmall.scaled(),
++        bodyLarge = base.bodyLarge.scaled(),
++        bodyMedium = base.bodyMedium.scaled(),
++        bodySmall = base.bodySmall.scaled(),
++        labelLarge = base.labelLarge.scaled(),
++        labelMedium = base.labelMedium.scaled(),
++        labelSmall = base.labelSmall.scaled(),
++    )
++}
++
+ @Immutable
+ data class MainShellColors(
+     val appGradientTop: Color,
+@@ -54,9 +84,10 @@ fun LynMusicTheme(
+             textPalette = textPalette,
+         )
+     }
++    val scaledTypo = remember { scaledTypography(CarTypographyScale) }
+     MaterialTheme(
+         colorScheme = palette.toColorScheme(),
+-        typography = Typography(),
++        typography = scaledTypo,
+     ) {
+         CompositionLocalProvider(
+             LocalContentColor provides Color(palette.onBackgroundArgb),

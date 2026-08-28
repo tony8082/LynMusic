@@ -9,10 +9,6 @@ on:
 permissions:
   contents: read
 
-env:
-  LYRICS_SCALE: "2"   # 车机歌词放大倍数（补丁内默认已 2f，保持一致）
-  UI_SCALE: "1.5"     # 车机界面文字放大倍数（标题/歌手/进度时间）
-
 jobs:
   build-car-apk:
     runs-on: ubuntu-latest
@@ -27,7 +23,7 @@ jobs:
           git reset --hard v1.1.1
           git --no-pager log -1 --oneline
 
-      # 2) 从本仓库取补丁（2x 歌词 + 大时钟 + 界面1.5倍，仅车机）并应用
+      # 2) 从本仓库取补丁（2x 歌词 + 大时钟 + 播放页字号回归 + 行距1.7x，仅车机）并应用
       - name: Fetch & apply lyrics+clock patch (car-only)
         run: |
           git clone --depth 1 -b car-lyrics-2x-clock https://github.com/tony8082/LynMusic.git fork
@@ -38,21 +34,14 @@ jobs:
             exit 1
           fi
           git apply /tmp/lyrics.patch
-          # 允许用户通过 env.LYRICS_SCALE / UI_SCALE 调整倍数
-          sed -i "s/lyricsTextScale = 3f/lyricsTextScale = ${{ env.LYRICS_SCALE }}f/" player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
-          sed -i "s/carUiScale: Float = 1.5f/carUiScale: Float = ${{ env.UI_SCALE }}f/" player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 
-      # 3) 定制：独立调试包名(.xl2c) / 应用名(大字版2时钟) / 版本号 / 关 lint
-      #    ⚠️ 调试版必须用独立 applicationId（.xl2c），与稳定版 .xl2 共存：
-      #       否则系统把调试版当成稳定版的"更新"，且每次构建签名都变 → 无法覆盖安装。
+      # 3) 定制：独立包名(.xl2c) / 应用名(大字版2时钟) / 版本号 / 关 lint
       #    ⚠️ 只改 applicationId（与原版共存靠它），严禁改 namespace！
-      #    AndroidManifest 里 .MainActivity 等是相对类名，按 namespace 解析；
-      #    改了 namespace 而源码包名没变 → 启动时 ClassNotFoundException → 闪退。
       - name: Customize application id, app name, version
         run: |
           cd src
-          sed -i 's/APP_VERSION_CODE = 111/APP_VERSION_CODE = 11107/' app-version.xcconfig
-          sed -i 's/APP_VERSION_NAME = 1.1.1/APP_VERSION_NAME = 1.1.1-lyric-2x-clock-v3/' app-version.xcconfig
+          sed -i 's/APP_VERSION_CODE = 111/APP_VERSION_CODE = 11108/' app-version.xcconfig
+          sed -i 's/APP_VERSION_NAME = 1.1.1/APP_VERSION_NAME = 1.1.1-lyric-2x-clock-v4/' app-version.xcconfig
           sed -i 's/applicationId = "top.iwesley.lyn.music.automotive"/applicationId = "top.iwesley.lyn.music.automotive.xl2c"/' automotiveApp/build.gradle.kts
           sed -i 's/LynMusic-Car-$appVersionName/LynMusic-Car-XL2C-$appVersionName/' automotiveApp/build.gradle.kts
           # ⚠️ 应用名须覆盖全部语言目录，否则车机精确匹配 zh-rCN 仍显示原版名
@@ -61,13 +50,13 @@ jobs:
           sed -i 's/<string name="automotive_app_name">LynMusic 音乐<\/string>/<string name="automotive_app_name">LynMusic 大字版2时钟<\/string>/' automotiveApp/src/main/res/values-zh-rCN/strings.xml
           echo "lyn.android.lintOnAssemble=false" > local.properties
 
-      # 4) 生成 Release 签名 keystore（CI 内临时，仅用于本次构建）
-      - name: Generate signing keystore
+      # 4) 解码固定 Release 签名 keystore（仓库内 base64）
+      #    v4 起签名固定：以后每次构建签名一致 → 新版本可直接覆盖安装，无需卸载
+      #    ⚠️ v3 及更早签名不同，首次安装 v4 仍需卸载旧 v3
+      - name: Decode fixed signing keystore
         run: |
-          keytool -genkey -v -keystore /home/runner/lynxl.jks \
-            -keyalg RSA -keysize 2048 -validity 10000 -alias lynxl \
-            -storepass android -keypass android \
-            -dname "CN=LynMusic XL, OU=Car, O=Lyn, C=CN"
+          base64 -d fork/lynxl2c-release.jks.b64 > /home/runner/lynxl.jks
+          keytool -list -v -keystore /home/runner/lynxl.jks -storepass android 2>/dev/null | grep -E "Alias name|SHA256:" | head -3
 
       # 5) JDK 21（AGP 8.13 / Kotlin 2.3，jvmTarget=21，与上游一致）
       - name: Set up JDK 21

@@ -114,12 +114,18 @@ index df8756c..ee5f4ac 100644
                                      textAlign = TextAlign.Start,
                                      fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Normal,
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
-index 1aa0ba8..547e8ca 100644
+index 1aa0ba8..9ca6ebf 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
-@@ -39,6 +39,7 @@ import androidx.compose.material3.Slider
+@@ -34,11 +34,12 @@ import androidx.compose.material.icons.rounded.SkipNext
+ import androidx.compose.material.icons.rounded.SkipPrevious
+ import androidx.compose.material3.Icon
+ import androidx.compose.material3.IconButton
+-import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.Slider
  import androidx.compose.material3.SliderDefaults
  import androidx.compose.material3.Text
++import androidx.compose.material3.Typography
  import androidx.compose.runtime.Composable
 +import androidx.compose.runtime.LaunchedEffect
  import androidx.compose.runtime.getValue
@@ -208,7 +214,7 @@ index 1aa0ba8..547e8ca 100644
                  }
              }
              AutomotiveTrackAndProgress(
-@@ -249,6 +272,7 @@ private fun AutomotivePlaybackPane(
+@@ -249,14 +272,16 @@ private fun AutomotivePlaybackPane(
                  onlineNavigationSourceId = onlineNavigationSourceId,
                  onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
                  onPlayerIntent = onPlayerIntent,
@@ -216,7 +222,17 @@ index 1aa0ba8..547e8ca 100644
                  modifier = Modifier
                      .weight(1f)
                      .fillMaxWidth(),
-@@ -286,19 +310,29 @@ private fun AutomotiveTrackAndProgress(
+             )
++            // 最大化模式：底部控制条不占位（高度清零），把空间让给封面和歌名栏下移
+             Box(
+                 modifier = Modifier
+                     .fillMaxWidth()
+-                    .height(controlsLayout.playButtonSize),
++                    .height(if (pureModePresentation.showPlaybackControls) controlsLayout.playButtonSize else 0.dp),
+                 contentAlignment = Alignment.Center,
+             ) {
+                 if (pureModePresentation.showPlaybackControls) {
+@@ -286,19 +311,32 @@ private fun AutomotiveTrackAndProgress(
      onlineNavigationSourceId: String?,
      onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -241,14 +257,17 @@ index 1aa0ba8..547e8ca 100644
 +            baseLayout
 +        }
          val compactVertical = layout.compactVertical
++        // 播放页字号基准必须用未缩放的 Material3 默认值（AutomotiveTypography）：
++        // 全局 Typography 已被 LynMusicTheme 放大 1.5×，若再 scaleFont(carUiScale)
++        // 会双重放大（1.5×1.5），导致播放页文字超大、歌名截断（v3 的 bug，v4 修复）
          val titleStyle =
 -            if (compactVertical) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineMedium
-+            (if (compactVertical) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineMedium)
++            (if (compactVertical) AutomotiveTypography.titleLarge else AutomotiveTypography.headlineMedium)
 +                .scaleFont(carUiScale)
          val inlineActionButtonSize = if (compactVertical) 44.dp else 52.dp
          val inlineActionIconSize = if (compactVertical) 24.dp else 28.dp
          Column(
-@@ -336,32 +370,39 @@ private fun AutomotiveTrackAndProgress(
+@@ -336,32 +374,39 @@ private fun AutomotiveTrackAndProgress(
                          overflow = TextOverflow.Ellipsis,
                          modifier = Modifier.weight(1f, fill = false),
                      )
@@ -279,7 +298,7 @@ index 1aa0ba8..547e8ca 100644
                      snapshot = snapshot,
                      track = track,
 -                    style = if (compactVertical) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.titleMedium,
-+                    style = (if (compactVertical) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.titleMedium)
++                    style = (if (compactVertical) AutomotiveTypography.bodyLarge else AutomotiveTypography.titleMedium)
 +                    .scaleFont(carUiScale),
                      color = Color.White.copy(alpha = 0.72f),
                      onlineNavigationSourceId = onlineNavigationSourceId,
@@ -305,7 +324,7 @@ index 1aa0ba8..547e8ca 100644
          }
      }
  }
-@@ -475,6 +516,7 @@ private fun AutomotiveMetadataNavigationRow(
+@@ -475,6 +520,7 @@ private fun AutomotiveMetadataNavigationRow(
      onlineNavigationSourceId: String?,
      onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
      modifier: Modifier = Modifier,
@@ -313,7 +332,7 @@ index 1aa0ba8..547e8ca 100644
  ) {
      val navigationTargets = remember(
          snapshot.currentDisplayAlbumTitle,
-@@ -517,7 +559,7 @@ private fun AutomotiveMetadataNavigationRow(
+@@ -517,7 +563,7 @@ private fun AutomotiveMetadataNavigationRow(
              onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
              modifier = Modifier.weight(1f, fill = false),
          )
@@ -322,7 +341,7 @@ index 1aa0ba8..547e8ca 100644
              Text(
                  text = " · ",
                  style = style,
-@@ -567,6 +609,7 @@ private fun AutomotiveMetadataText(
+@@ -567,6 +613,7 @@ private fun AutomotiveMetadataText(
  private fun AutomotivePlaybackProgress(
      snapshot: PlaybackSnapshot,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -330,22 +349,22 @@ index 1aa0ba8..547e8ca 100644
      modifier: Modifier = Modifier,
  ) {
      var dragFraction by remember(snapshot.currentTrack?.id, snapshot.durationMs) {
-@@ -615,12 +658,12 @@ private fun AutomotivePlaybackProgress(
+@@ -615,12 +662,12 @@ private fun AutomotivePlaybackProgress(
          ) {
              Text(
                  text = formatDuration(snapshot.positionMs),
 -                style = MaterialTheme.typography.labelLarge,
-+                style = MaterialTheme.typography.labelLarge.scaleFont(carUiScale),
++                style = AutomotiveTypography.labelLarge.scaleFont(carUiScale),
                  color = Color.White.copy(alpha = 0.74f),
              )
              Text(
                  text = formatDuration(snapshot.durationMs),
 -                style = MaterialTheme.typography.labelLarge,
-+                style = MaterialTheme.typography.labelLarge.scaleFont(carUiScale),
++                style = AutomotiveTypography.labelLarge.scaleFont(carUiScale),
                  color = Color.White.copy(alpha = 0.74f),
              )
          }
-@@ -745,6 +788,7 @@ private fun AutomotiveLyricsPane(
+@@ -745,6 +792,7 @@ private fun AutomotiveLyricsPane(
              track = track,
              onPlayerIntent = onPlayerIntent,
              pure = true,
@@ -353,18 +372,28 @@ index 1aa0ba8..547e8ca 100644
              modifier = Modifier.fillMaxSize(),
          )
      }
-@@ -1190,6 +1234,10 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
+@@ -1190,11 +1238,20 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
  private val AutomotiveFiveControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 5
  private val AutomotivePrimaryControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 3
  private val AutomotiveTopControlsSlotHeight = 64.dp
-+private val AutomotivePureModeTopSlotHeight = 80.dp
++private val AutomotivePureModeTopSlotHeight = 116.dp
 +private val AutomotiveMaximizeBackButtonSize = 84.dp
 +private val AutomotiveMaximizeBackIconSize = 48.dp
 +private const val AutomotivePureModeArtworkScale = 1.25f
  private const val AutomotivePureModeSecondPointerWindowMillis = 150L
  private const val AutomotivePureModeTapTimeoutMillis = 300L
  private const val AutomotivePlaybackPaneWeight = 0.46f
-@@ -1324,3 +1372,35 @@ private fun automotiveMetadataValue(
+ private const val AutomotiveLyricsPaneWeight = 0.54f
+ 
++// 播放页专用未缩放字号基准：Material3 出厂默认值。
++// 全局 Typography 已被 LynMusicTheme scaledTypography(1.5×) 放大（作用于设置/曲库等页面），
++// 播放页文字在此基础上再 scaleFont(carUiScale) 会双重放大，故必须引用此基准（v4 修复）
++private val AutomotiveTypography = Typography()
++
+ internal data class AutomotiveTrackAndProgressLayout(
+     val compactVertical: Boolean,
+     val artworkSize: Dp,
+@@ -1324,3 +1381,38 @@ private fun automotiveMetadataValue(
      return primary?.trim()?.takeIf { it.isNotBlank() }
          ?: fallback?.trim()?.takeIf { it.isNotBlank() }
  }
@@ -392,8 +421,11 @@ index 1aa0ba8..547e8ca 100644
 +    ) {
 +        Text(
 +            text = timeStr.value,
-+            style = MaterialTheme.typography.displayMedium.copy(
-+                fontSize = (64f * scale).sp,
++            // 显式 TextStyle（不依赖 MaterialTheme.typography，避免被全局放大波及）
++            // lineHeight 必须随 fontSize 放大，否则字形被垂直裁切（v3 时钟显示不全的原因）
++            style = TextStyle(
++                fontSize = (60f * scale).sp,
++                lineHeight = (72f * scale).sp,
 +                fontWeight = FontWeight.ExtraBold,
 +            ),
 +            color = Color.White.copy(alpha = 0.96f),
@@ -401,10 +433,10 @@ index 1aa0ba8..547e8ca 100644
 +    }
 +}
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/ui/LynMusicTheme.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/ui/LynMusicTheme.kt
-index 7e3cc1d..85a20c1 100644
+index 7e3cc1d..6d49a4d 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/ui/LynMusicTheme.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/ui/LynMusicTheme.kt
-@@ -12,12 +12,42 @@ import androidx.compose.runtime.ReadOnlyComposable
+@@ -12,12 +12,45 @@ import androidx.compose.runtime.ReadOnlyComposable
  import androidx.compose.runtime.remember
  import androidx.compose.runtime.staticCompositionLocalOf
  import androidx.compose.ui.graphics.Color
@@ -415,15 +447,18 @@ index 7e3cc1d..85a20c1 100644
  import top.iwesley.lyn.music.core.model.CLASSIC_APP_THEME_TOKENS
  import top.iwesley.lyn.music.core.model.deriveAppThemePalette
  
-+// 车机版：全局 Typography 字号缩放因子（影响设置/曲库/我的等非播放页面）
-+// 播放页 Text 均用 .copy(fontSize=...) 显式覆盖，不受此缩放影响
++// 车机版：全局 Typography 缩放（影响设置/曲库/我的等非播放页面）
++// 字号 ×1.5，行高 ×1.7（v4：行高比字号多放大一点，增加列表行间距/呼吸感）
++// 播放页文字走 AutomotivePlayerUi 内的 AutomotiveTypography 基准 + scaleFont，
++// 不受此处缩放影响（v3 曾因双重放大出 bug，v4 已修复）
 +private const val CarTypographyScale = 1.5f
++private const val CarTypographyLineHeightScale = 1.7f
 +
-+private fun scaledTypography(factor: Float): Typography {
++private fun scaledTypography(factor: Float, lineHeightFactor: Float): Typography {
 +    val base = Typography()
 +    fun TextStyle.scaled() = copy(
 +        fontSize = fontSize * factor,
-+        lineHeight = lineHeight * factor,
++        lineHeight = lineHeight * lineHeightFactor,
 +    )
 +    return Typography(
 +        displayLarge = base.displayLarge.scaled(),
@@ -447,11 +482,11 @@ index 7e3cc1d..85a20c1 100644
  @Immutable
  data class MainShellColors(
      val appGradientTop: Color,
-@@ -54,9 +84,10 @@ fun LynMusicTheme(
+@@ -54,9 +87,10 @@ fun LynMusicTheme(
              textPalette = textPalette,
          )
      }
-+    val scaledTypo = remember { scaledTypography(CarTypographyScale) }
++    val scaledTypo = remember { scaledTypography(CarTypographyScale, CarTypographyLineHeightScale) }
      MaterialTheme(
          colorScheme = palette.toColorScheme(),
 -        typography = Typography(),

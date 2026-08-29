@@ -114,7 +114,7 @@ index df8756c..ee5f4ac 100644
                                      textAlign = TextAlign.Start,
                                      fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Normal,
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
-index 1aa0ba8..9ca6ebf 100644
+index 1aa0ba8..c1f7e7a 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 @@ -34,11 +34,12 @@ import androidx.compose.material.icons.rounded.SkipNext
@@ -144,7 +144,17 @@ index 1aa0ba8..9ca6ebf 100644
  import kotlin.math.roundToInt
  import kotlin.math.roundToLong
  import top.iwesley.lyn.music.ArtworkDecodeSize
-@@ -180,6 +185,7 @@ private fun AutomotivePlaybackPane(
+@@ -154,6 +159,9 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
+                 state = state,
+                 track = track,
+                 onPlayerIntent = onPlayerIntent,
++                isPureMode = isPureMode,
++                onPureModeChanged = onPureModeChanged,
++                onOpenQueue = onOpenQueue,
+                 modifier = Modifier
+                     .weight(AutomotiveLyricsPaneWeight)
+                     .fillMaxHeight(),
+@@ -180,6 +188,7 @@ private fun AutomotivePlaybackPane(
      controlsReferenceMaxWidth: Dp,
      controlsReferenceMaxHeight: Dp,
      onPureModeChanged: (Boolean) -> Unit,
@@ -152,19 +162,16 @@ index 1aa0ba8..9ca6ebf 100644
      modifier: Modifier = Modifier,
  ) {
      val snapshot = state.snapshot
-@@ -195,13 +201,22 @@ private fun AutomotivePlaybackPane(
+@@ -194,14 +203,19 @@ private fun AutomotivePlaybackPane(
+         val pureModePresentation = resolveAutomotivePureModePresentation(isPureMode)
          val topControlButtonSize = resolveAutomotiveTopControlButtonSize(maxWidth)
          val topControlIconScale = topControlButtonSize / AutomotiveTopControlsSlotHeight
++        // v5：移除播放区整块隐式点击（原"点按进入最大化"与控制按钮冲突易误触）
++        // 最大化入口改为：歌词区顶带点按 + 顶栏显式按钮 + 双指点按
          Column(
 -            modifier = Modifier.fillMaxSize(),
 +            modifier = Modifier
-+                .fillMaxSize()
-+                .clickable(
-+                    enabled = !isPureMode,
-+                    interactionSource = remember { MutableInteractionSource() },
-+                    indication = null,
-+                    onClick = { onPureModeChanged(true) },
-+                ),
++                .fillMaxSize(),
              verticalArrangement = Arrangement.SpaceBetween,
          ) {
              Box(
@@ -177,7 +184,7 @@ index 1aa0ba8..9ca6ebf 100644
              ) {
                  if (pureModePresentation.showTopControls) {
                      Row(
-@@ -214,7 +229,7 @@ private fun AutomotivePlaybackPane(
+@@ -214,7 +228,7 @@ private fun AutomotivePlaybackPane(
                              contentDescription = "收起播放页",
                              onClick = { onPlayerIntent(PlayerIntent.ExpandedChanged(false)) },
                              buttonSize = topControlButtonSize,
@@ -186,7 +193,7 @@ index 1aa0ba8..9ca6ebf 100644
                          )
                          Row(
                              verticalAlignment = Alignment.CenterVertically,
-@@ -224,17 +239,25 @@ private fun AutomotivePlaybackPane(
+@@ -224,17 +238,25 @@ private fun AutomotivePlaybackPane(
                                  contentDescription = "搜索歌词",
                                  onClick = { onPlayerIntent(PlayerIntent.OpenManualLyricsSearch) },
                                  buttonSize = topControlButtonSize,
@@ -214,7 +221,7 @@ index 1aa0ba8..9ca6ebf 100644
                  }
              }
              AutomotiveTrackAndProgress(
-@@ -249,14 +272,16 @@ private fun AutomotivePlaybackPane(
+@@ -249,14 +271,16 @@ private fun AutomotivePlaybackPane(
                  onlineNavigationSourceId = onlineNavigationSourceId,
                  onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
                  onPlayerIntent = onPlayerIntent,
@@ -232,7 +239,7 @@ index 1aa0ba8..9ca6ebf 100644
                  contentAlignment = Alignment.Center,
              ) {
                  if (pureModePresentation.showPlaybackControls) {
-@@ -286,19 +311,32 @@ private fun AutomotiveTrackAndProgress(
+@@ -286,19 +310,32 @@ private fun AutomotiveTrackAndProgress(
      onlineNavigationSourceId: String?,
      onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -267,7 +274,7 @@ index 1aa0ba8..9ca6ebf 100644
          val inlineActionButtonSize = if (compactVertical) 44.dp else 52.dp
          val inlineActionIconSize = if (compactVertical) 24.dp else 28.dp
          Column(
-@@ -336,32 +374,39 @@ private fun AutomotiveTrackAndProgress(
+@@ -336,32 +373,39 @@ private fun AutomotiveTrackAndProgress(
                          overflow = TextOverflow.Ellipsis,
                          modifier = Modifier.weight(1f, fill = false),
                      )
@@ -324,7 +331,30 @@ index 1aa0ba8..9ca6ebf 100644
          }
      }
  }
-@@ -475,6 +520,7 @@ private fun AutomotiveMetadataNavigationRow(
+@@ -387,16 +431,12 @@ private fun AutomotiveSwipeableArtwork(
+         animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+         label = "automotive-artwork-swipe-offset",
+     )
+-    val artworkTapIntent = resolveAutomotiveArtworkTapIntent(isPureMode)
+-    val artworkTapModifier = if (artworkTapIntent != null) {
+-        Modifier.clickable(
+-            interactionSource = remember { MutableInteractionSource() },
+-            indication = null,
+-        ) {
+-            onPlayerIntent(artworkTapIntent)
+-        }
+-    } else {
+-        Modifier
++    // v5：封面点按 = 播放/暂停（两种模式统一），不再依赖 isPureMode
++    val artworkTapModifier = Modifier.clickable(
++        interactionSource = remember { MutableInteractionSource() },
++        indication = null,
++    ) {
++        onPlayerIntent(resolveAutomotiveArtworkTapIntent())
+     }
+     Box(
+         modifier = modifier
+@@ -475,6 +515,7 @@ private fun AutomotiveMetadataNavigationRow(
      onlineNavigationSourceId: String?,
      onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
      modifier: Modifier = Modifier,
@@ -332,7 +362,7 @@ index 1aa0ba8..9ca6ebf 100644
  ) {
      val navigationTargets = remember(
          snapshot.currentDisplayAlbumTitle,
-@@ -517,7 +563,7 @@ private fun AutomotiveMetadataNavigationRow(
+@@ -517,7 +558,7 @@ private fun AutomotiveMetadataNavigationRow(
              onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
              modifier = Modifier.weight(1f, fill = false),
          )
@@ -341,7 +371,7 @@ index 1aa0ba8..9ca6ebf 100644
              Text(
                  text = " · ",
                  style = style,
-@@ -567,6 +613,7 @@ private fun AutomotiveMetadataText(
+@@ -567,6 +608,7 @@ private fun AutomotiveMetadataText(
  private fun AutomotivePlaybackProgress(
      snapshot: PlaybackSnapshot,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -349,7 +379,7 @@ index 1aa0ba8..9ca6ebf 100644
      modifier: Modifier = Modifier,
  ) {
      var dragFraction by remember(snapshot.currentTrack?.id, snapshot.durationMs) {
-@@ -615,12 +662,12 @@ private fun AutomotivePlaybackProgress(
+@@ -615,12 +657,12 @@ private fun AutomotivePlaybackProgress(
          ) {
              Text(
                  text = formatDuration(snapshot.positionMs),
@@ -364,15 +394,76 @@ index 1aa0ba8..9ca6ebf 100644
                  color = Color.White.copy(alpha = 0.74f),
              )
          }
-@@ -745,6 +792,7 @@ private fun AutomotiveLyricsPane(
-             track = track,
-             onPlayerIntent = onPlayerIntent,
-             pure = true,
-+            lyricsTextScale = 2f,
-             modifier = Modifier.fillMaxSize(),
-         )
+@@ -734,19 +776,49 @@ private fun AutomotiveLyricsPane(
+     state: PlayerState,
+     track: Track,
+     onPlayerIntent: (PlayerIntent) -> Unit,
++    isPureMode: Boolean,
++    onPureModeChanged: (Boolean) -> Unit,
++    onOpenQueue: () -> Unit,
+     modifier: Modifier = Modifier,
+ ) {
+     Box(
+         modifier = modifier
+             .padding(horizontal = 18.dp, vertical = 16.dp),
+     ) {
+-        PlayerLyricsPane(
+-            state = state,
+-            track = track,
+-            onPlayerIntent = onPlayerIntent,
+-            pure = true,
+-            modifier = Modifier.fillMaxSize(),
+-        )
++        Column(modifier = Modifier.fillMaxSize()) {
++            // v5 顶带触发区：点按切换最大化（普通页进入 / 最大化页退出，进出同区）
++            // 无视觉指示（indication=null），避免与歌词视觉混淆；歌词区原本无点击行为，不冲突
++            Box(
++                modifier = Modifier
++                    .fillMaxWidth()
++                    .height(AutomotiveLyricsZoneTapHeight)
++                    .clickable(
++                        interactionSource = remember { MutableInteractionSource() },
++                        indication = null,
++                    ) { onPureModeChanged(!isPureMode) },
++            )
++            // 中段：歌词本体（滚动浏览/自动居中行为完全不变）
++            PlayerLyricsPane(
++                state = state,
++                track = track,
++                onPlayerIntent = onPlayerIntent,
++                pure = true,
++                lyricsTextScale = 2f,
++                modifier = Modifier
++                    .weight(1f)
++                    .fillMaxWidth(),
++            )
++            // v5 底带触发区：点按打开播放清单（最大化页原先无清单入口，本版新增能力）
++            Box(
++                modifier = Modifier
++                    .fillMaxWidth()
++                    .height(AutomotiveLyricsZoneTapHeight)
++                    .clickable(
++                        interactionSource = remember { MutableInteractionSource() },
++                        indication = null,
++                    ) { onOpenQueue() },
++            )
++        }
      }
-@@ -1190,11 +1238,20 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
+ }
+ 
+@@ -792,9 +864,8 @@ internal fun resolveAutomotiveTopControlButtonSize(maxWidth: Dp): Dp =
+     minOf(AutomotiveTopControlsSlotHeight, maxWidth / 3f)
+         .coerceAtLeast(AutomotiveControlMinimumTouchSize)
+ 
+-internal fun resolveAutomotiveArtworkTapIntent(
+-    isPureMode: Boolean,
+-): PlayerIntent? = if (isPureMode) PlayerIntent.TogglePlayPause else null
++// v5：封面点按统一为播放/暂停（普通页+最大化页行为一致；横滑切歌手势不受影响）
++internal fun resolveAutomotiveArtworkTapIntent(): PlayerIntent = PlayerIntent.TogglePlayPause
+ 
+ internal fun resolveAutomotivePureModeAfterTwoFingerTap(
+     isPureMode: Boolean,
+@@ -1190,11 +1261,24 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
  private val AutomotiveFiveControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 5
  private val AutomotivePrimaryControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 3
  private val AutomotiveTopControlsSlotHeight = 64.dp
@@ -385,6 +476,10 @@ index 1aa0ba8..9ca6ebf 100644
  private const val AutomotivePlaybackPaneWeight = 0.46f
  private const val AutomotiveLyricsPaneWeight = 0.54f
  
++// v5：歌词区上下触发窄带高度（≥48dp 触控最小标准，车机好按且不挤占歌词）：
++// 顶带点按=最大化切换（进出同区），底带点按=切换播放清单
++private val AutomotiveLyricsZoneTapHeight = 64.dp
++
 +// 播放页专用未缩放字号基准：Material3 出厂默认值。
 +// 全局 Typography 已被 LynMusicTheme scaledTypography(1.5×) 放大（作用于设置/曲库等页面），
 +// 播放页文字在此基础上再 scaleFont(carUiScale) 会双重放大，故必须引用此基准（v4 修复）
@@ -393,7 +488,7 @@ index 1aa0ba8..9ca6ebf 100644
  internal data class AutomotiveTrackAndProgressLayout(
      val compactVertical: Boolean,
      val artworkSize: Dp,
-@@ -1324,3 +1381,38 @@ private fun automotiveMetadataValue(
+@@ -1324,3 +1408,38 @@ private fun automotiveMetadataValue(
      return primary?.trim()?.takeIf { it.isNotBlank() }
          ?: fallback?.trim()?.takeIf { it.isNotBlank() }
  }

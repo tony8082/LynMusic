@@ -114,7 +114,7 @@ index df8756c..ee5f4ac 100644
                                      textAlign = TextAlign.Start,
                                      fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Normal,
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
-index 1aa0ba8..d6ee6e5 100644
+index 1aa0ba8..900688d 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 @@ -34,11 +34,12 @@ import androidx.compose.material.icons.rounded.SkipNext
@@ -382,7 +382,7 @@ index 1aa0ba8..d6ee6e5 100644
      modifier: Modifier = Modifier,
  ) {
      var dragFraction by remember(snapshot.currentTrack?.id, snapshot.durationMs) {
-@@ -615,12 +660,50 @@ private fun AutomotivePlaybackProgress(
+@@ -615,12 +660,79 @@ private fun AutomotivePlaybackProgress(
          ) {
              Text(
                  text = formatDuration(snapshot.positionMs),
@@ -399,26 +399,55 @@ index 1aa0ba8..d6ee6e5 100644
 +    }
 +}
 +
-+// v6：最大化页专用只读进度条（细轨 + 已播/总时长）
-+// 与 AutomotivePlaybackProgress 的区别：无 Slider、不可拖动，纯展示，不新增触控目标（防误触）
++// v7：最大化页歌词区底部进度条——拉满歌词区宽度，且可拖动跳转（"拉歌"）
++// 复用播放页的透明 Slider 方案；拖动条是独立触控目标，不会触发整屏"点击切换"
 +@Composable
 +private fun AutomotivePureModeProgressRow(
 +    snapshot: PlaybackSnapshot,
++    onPlayerIntent: (PlayerIntent) -> Unit,
 +    carUiScale: Float = 1.5f,
 +    modifier: Modifier = Modifier,
 +) {
-+    val progressFraction = resolveAutomotivePlayerProgressFraction(snapshot)
++    var dragFraction by remember(snapshot.currentTrack?.id, snapshot.durationMs) {
++        mutableStateOf<Float?>(null)
++    }
++    val progressFraction = dragFraction ?: resolveAutomotivePlayerProgressFraction(snapshot)
 +    Column(
 +        modifier = modifier,
 +        verticalArrangement = Arrangement.spacedBy(8.dp),
 +    ) {
-+        AutomotiveRoundedSliderTrack(
-+            progressFraction = progressFraction,
++        Box(
 +            modifier = Modifier
 +                .fillMaxWidth()
-+                .height(6.dp),
-+            trackHeightPx = with(LocalDensity.current) { 6.dp.toPx() },
-+        )
++                .height(12.dp),
++            contentAlignment = Alignment.Center,
++        ) {
++            AutomotiveRoundedSliderTrack(
++                progressFraction = progressFraction,
++                modifier = Modifier
++                    .fillMaxWidth()
++                    .height(6.dp),
++                trackHeightPx = with(LocalDensity.current) { 6.dp.toPx() },
++            )
++            Slider(
++                value = progressFraction.coerceIn(0f, 1f),
++                onValueChange = { dragFraction = it },
++                onValueChangeFinished = {
++                    val targetPositionMs = resolveAutomotivePlayerSeekPositionMs(dragFraction, snapshot)
++                    dragFraction = null
++                    if (targetPositionMs != null) {
++                        onPlayerIntent(PlayerIntent.SeekTo(targetPositionMs))
++                    }
++                },
++                enabled = snapshot.canSeek && snapshot.durationMs > 0L,
++                valueRange = 0f..1f,
++                colors = automotiveTransparentSliderColors(),
++                modifier = Modifier
++                    .fillMaxWidth()
++                    .height(12.dp)
++                    .graphicsLayer(scaleY = 0.58f),
++            )
++        }
 +        Row(
 +            modifier = Modifier.fillMaxWidth(),
 +            horizontalArrangement = Arrangement.SpaceBetween,
@@ -435,7 +464,7 @@ index 1aa0ba8..d6ee6e5 100644
                  color = Color.White.copy(alpha = 0.74f),
              )
          }
-@@ -734,19 +817,85 @@ private fun AutomotiveLyricsPane(
+@@ -734,19 +846,45 @@ private fun AutomotiveLyricsPane(
      state: PlayerState,
      track: Track,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -444,9 +473,17 @@ index 1aa0ba8..d6ee6e5 100644
 +    onOpenQueue: () -> Unit,
      modifier: Modifier = Modifier,
  ) {
++    // v7：移除上/下两条 64dp 触发带及其提示图标（歌词区 +128dp ≈ +25%）
++    // 整块歌词区可点 = 播放↔最大化切换（普通页进 / 最大化页退），双指手势仍保留
++    // 歌单按钮取消：播放模式左下控制条的 QueueMusic 已可查看
      Box(
          modifier = modifier
-             .padding(horizontal = 18.dp, vertical = 16.dp),
+-            .padding(horizontal = 18.dp, vertical = 16.dp),
++            .padding(horizontal = 18.dp, vertical = 16.dp)
++            .clickable(
++                interactionSource = remember { MutableInteractionSource() },
++                indication = null,
++            ) { onPureModeChanged(!isPureMode) },
      ) {
 -        PlayerLyricsPane(
 -            state = state,
@@ -456,31 +493,7 @@ index 1aa0ba8..d6ee6e5 100644
 -            modifier = Modifier.fillMaxSize(),
 -        )
 +        Column(modifier = Modifier.fillMaxSize()) {
-+            // v5 顶带触发区：点按切换最大化（普通页进入 / 最大化页退出，进出同区）
-+            // v6：补一个极淡的提示图标（0.28α），让隐藏触发区可被发现；点按无涟漪（indication=null）
-+            Box(
-+                modifier = Modifier
-+                    .fillMaxWidth()
-+                    .height(AutomotiveLyricsZoneTapHeight)
-+                    .clickable(
-+                        interactionSource = remember { MutableInteractionSource() },
-+                        indication = null,
-+                    ) { onPureModeChanged(!isPureMode) },
-+                contentAlignment = Alignment.Center,
-+            ) {
-+                Icon(
-+                    imageVector = if (isPureMode) {
-+                        // 最大化页：退出=收起，与顶栏"收起播放页"图标语义一致（且无需新增图标依赖）
-+                        Icons.Rounded.KeyboardArrowDown
-+                    } else {
-+                        Icons.Rounded.Fullscreen
-+                    },
-+                    contentDescription = if (isPureMode) "退出最大化" else "进入最大化",
-+                    tint = Color.White.copy(alpha = 0.28f),
-+                    modifier = Modifier.size(26.dp),
-+                )
-+            }
-+            // 中段：歌词本体（滚动浏览/自动居中行为完全不变）
++            // 中段：歌词本体（滚动浏览/自动居中行为完全不变；歌词行本身无点击跳转，整块可点安全）
 +            PlayerLyricsPane(
 +                state = state,
 +                track = track,
@@ -491,44 +504,21 @@ index 1aa0ba8..d6ee6e5 100644
 +                    .weight(1f)
 +                    .fillMaxWidth(),
 +            )
-+            // v5 底带触发区：点按打开播放清单（最大化页原先无清单入口，本版新增能力）
-+            // v6：同样补一个极淡的清单图标提示
-+            Box(
-+                modifier = Modifier
-+                    .fillMaxWidth()
-+                    .height(AutomotiveLyricsZoneTapHeight)
-+                    .clickable(
-+                        interactionSource = remember { MutableInteractionSource() },
-+                        indication = null,
-+                    ) { onOpenQueue() },
-+                contentAlignment = Alignment.Center,
-+            ) {
-+                Icon(
-+                    imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
-+                    contentDescription = "播放队列",
-+                    tint = Color.White.copy(alpha = 0.28f),
-+                    modifier = Modifier.size(26.dp),
-+                )
-+            }
-+            // v6：最大化页专属——歌词区下方、右下角的只读进度条 + 已播/总时长
-+            // 仅最大化页显示（普通页进度条仍在左侧播放区）；只读不可拖动，不新增触控目标
++            // v7：最大化页专属——歌词区底部、拉满宽度的可拖动进度条 + 已播/总时长
++            // 仅最大化页显示（普通页进度条仍在左侧播放区）；拖动条为独立触控目标，不触发整屏切换
 +            if (isPureMode) {
 +                Spacer(Modifier.height(AutomotiveLyricsProgressTopGap))
-+                Row(
++                AutomotivePureModeProgressRow(
++                    snapshot = state.snapshot,
++                    onPlayerIntent = onPlayerIntent,
 +                    modifier = Modifier.fillMaxWidth(),
-+                    horizontalArrangement = Arrangement.End,
-+                ) {
-+                    AutomotivePureModeProgressRow(
-+                        snapshot = state.snapshot,
-+                        modifier = Modifier.fillMaxWidth(AutomotiveLyricsProgressWidthFraction),
-+                    )
-+                }
++                )
 +            }
 +        }
      }
  }
  
-@@ -792,9 +941,8 @@ internal fun resolveAutomotiveTopControlButtonSize(maxWidth: Dp): Dp =
+@@ -792,9 +930,8 @@ internal fun resolveAutomotiveTopControlButtonSize(maxWidth: Dp): Dp =
      minOf(AutomotiveTopControlsSlotHeight, maxWidth / 3f)
          .coerceAtLeast(AutomotiveControlMinimumTouchSize)
  
@@ -540,7 +530,7 @@ index 1aa0ba8..d6ee6e5 100644
  
  internal fun resolveAutomotivePureModeAfterTwoFingerTap(
      isPureMode: Boolean,
-@@ -1190,11 +1338,28 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
+@@ -1190,11 +1327,23 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
  private val AutomotiveFiveControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 5
  private val AutomotivePrimaryControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 3
  private val AutomotiveTopControlsSlotHeight = 64.dp
@@ -553,12 +543,7 @@ index 1aa0ba8..d6ee6e5 100644
  private const val AutomotivePlaybackPaneWeight = 0.46f
  private const val AutomotiveLyricsPaneWeight = 0.54f
  
-+// v5：歌词区上下触发窄带高度（≥48dp 触控最小标准，车机好按且不挤占歌词）：
-+// 顶带点按=最大化切换（进出同区），底带点按=切换播放清单
-+private val AutomotiveLyricsZoneTapHeight = 64.dp
-+// v6：最大化页的只读进度条放在「歌词区下方、靠右下角」（不是左侧控制区），
-+// 占歌词区宽度的 55%，歌词区高度自动被压缩（Column weight），不影响封面/歌名布局
-+private const val AutomotiveLyricsProgressWidthFraction = 0.55f
++// v7：最大化页歌词区底部进度条与歌词区顶边的间距
 +private val AutomotiveLyricsProgressTopGap = 10.dp
 +
 +// 播放页专用未缩放字号基准：Material3 出厂默认值。
@@ -569,7 +554,7 @@ index 1aa0ba8..d6ee6e5 100644
  internal data class AutomotiveTrackAndProgressLayout(
      val compactVertical: Boolean,
      val artworkSize: Dp,
-@@ -1324,3 +1489,38 @@ private fun automotiveMetadataValue(
+@@ -1324,3 +1473,38 @@ private fun automotiveMetadataValue(
      return primary?.trim()?.takeIf { it.isNotBlank() }
          ?: fallback?.trim()?.takeIf { it.isNotBlank() }
  }

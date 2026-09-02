@@ -40,8 +40,8 @@ jobs:
       - name: Customize application id, app name, version
         run: |
           cd src
-          sed -i 's/APP_VERSION_CODE = 111/APP_VERSION_CODE = 11112/' app-version.xcconfig
-          sed -i 's/APP_VERSION_NAME = 1.1.1/APP_VERSION_NAME = 1.1.1-lyric-2x-clock-v8/' app-version.xcconfig
+          sed -i 's/APP_VERSION_CODE = 111/APP_VERSION_CODE = 11113/' app-version.xcconfig
+          sed -i 's/APP_VERSION_NAME = 1.1.1/APP_VERSION_NAME = 1.1.1-lyric-2x-clock-v9/' app-version.xcconfig
           sed -i 's/applicationId = "top.iwesley.lyn.music.automotive"/applicationId = "top.iwesley.lyn.music.automotive.xl2c"/' automotiveApp/build.gradle.kts
           sed -i 's/LynMusic-Car-$appVersionName/LynMusic-Car-XL2C-$appVersionName/' automotiveApp/build.gradle.kts
           # ⚠️ 应用名须覆盖全部语言目录，否则车机精确匹配 zh-rCN 仍显示原版名
@@ -106,3 +106,4 @@ jobs:
           name: LynMusic-Car-XL2C-clock-release-universal
           path: src/automotiveApp/build/outputs/apk/release/*universal*.apk
           if-no-files-found: error
+          retention-days: 7

@@ -114,7 +114,7 @@ index df8756c..ee5f4ac 100644
                                      textAlign = TextAlign.Start,
                                      fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Normal,
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
-index 1aa0ba8..6bc8a29 100644
+index 1aa0ba8..5eb1618 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 @@ -34,11 +34,12 @@ import androidx.compose.material.icons.rounded.SkipNext
@@ -144,7 +144,18 @@ index 1aa0ba8..6bc8a29 100644
  import kotlin.math.roundToInt
  import kotlin.math.roundToLong
  import top.iwesley.lyn.music.ArtworkDecodeSize
-@@ -154,6 +159,9 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
+@@ -122,6 +127,10 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
+         Row(
+             modifier = Modifier
+                 .fillMaxSize()
++                .clickable(
++                    interactionSource = remember { MutableInteractionSource() },
++                    indication = null,
++                ) { onPureModeChanged(!isPureMode) }
+                 .padding(
+                     horizontal = frameLayout.horizontalPadding,
+                     vertical = frameLayout.verticalPadding,
+@@ -154,6 +163,9 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
                  state = state,
                  track = track,
                  onPlayerIntent = onPlayerIntent,
@@ -154,7 +165,7 @@ index 1aa0ba8..6bc8a29 100644
                  modifier = Modifier
                      .weight(AutomotiveLyricsPaneWeight)
                      .fillMaxHeight(),
-@@ -180,6 +188,7 @@ private fun AutomotivePlaybackPane(
+@@ -180,6 +192,7 @@ private fun AutomotivePlaybackPane(
      controlsReferenceMaxWidth: Dp,
      controlsReferenceMaxHeight: Dp,
      onPureModeChanged: (Boolean) -> Unit,
@@ -162,7 +173,7 @@ index 1aa0ba8..6bc8a29 100644
      modifier: Modifier = Modifier,
  ) {
      val snapshot = state.snapshot
-@@ -194,14 +203,19 @@ private fun AutomotivePlaybackPane(
+@@ -194,14 +207,19 @@ private fun AutomotivePlaybackPane(
          val pureModePresentation = resolveAutomotivePureModePresentation(isPureMode)
          val topControlButtonSize = resolveAutomotiveTopControlButtonSize(maxWidth)
          val topControlIconScale = topControlButtonSize / AutomotiveTopControlsSlotHeight
@@ -184,7 +195,7 @@ index 1aa0ba8..6bc8a29 100644
              ) {
                  if (pureModePresentation.showTopControls) {
                      Row(
-@@ -214,7 +228,7 @@ private fun AutomotivePlaybackPane(
+@@ -214,7 +232,7 @@ private fun AutomotivePlaybackPane(
                              contentDescription = "收起播放页",
                              onClick = { onPlayerIntent(PlayerIntent.ExpandedChanged(false)) },
                              buttonSize = topControlButtonSize,
@@ -193,7 +204,7 @@ index 1aa0ba8..6bc8a29 100644
                          )
                          Row(
                              verticalAlignment = Alignment.CenterVertically,
-@@ -224,14 +238,41 @@ private fun AutomotivePlaybackPane(
+@@ -224,14 +242,51 @@ private fun AutomotivePlaybackPane(
                                  contentDescription = "搜索歌词",
                                  onClick = { onPlayerIntent(PlayerIntent.OpenManualLyricsSearch) },
                                  buttonSize = topControlButtonSize,
@@ -229,6 +240,16 @@ index 1aa0ba8..6bc8a29 100644
 +                            verticalAlignment = Alignment.CenterVertically,
 +                        ) {
 +                            AutomotiveRoundIconButton(
++                                icon = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
++                                contentDescription = if (isFavorite) "取消喜欢" else "喜欢",
++                                onClick = onToggleFavorite,
++                                buttonSize = AutomotiveMaximizeBackButtonSize,
++                                iconSize = AutomotiveMaximizeBackIconSize,
++                                tint = if (isFavorite) Color(0xFFE5484D) else Color.White.copy(alpha = 0.9f),
++                                enabled = canToggleFavorite,
++                            )
++                            Spacer(Modifier.width(12.dp))
++                            AutomotiveRoundIconButton(
 +                                icon = Icons.AutoMirrored.Rounded.QueueMusic,
 +                                contentDescription = "播放队列",
 +                                onClick = onOpenQueue,
@@ -237,7 +258,7 @@ index 1aa0ba8..6bc8a29 100644
                              )
                          }
                      }
-@@ -249,14 +290,16 @@ private fun AutomotivePlaybackPane(
+@@ -249,14 +304,16 @@ private fun AutomotivePlaybackPane(
                  onlineNavigationSourceId = onlineNavigationSourceId,
                  onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
                  onPlayerIntent = onPlayerIntent,
@@ -255,7 +276,7 @@ index 1aa0ba8..6bc8a29 100644
                  contentAlignment = Alignment.Center,
              ) {
                  if (pureModePresentation.showPlaybackControls) {
-@@ -286,19 +329,35 @@ private fun AutomotiveTrackAndProgress(
+@@ -286,19 +343,35 @@ private fun AutomotiveTrackAndProgress(
      onlineNavigationSourceId: String?,
      onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -293,7 +314,7 @@ index 1aa0ba8..6bc8a29 100644
          val inlineActionButtonSize = if (compactVertical) 44.dp else 52.dp
          val inlineActionIconSize = if (compactVertical) 24.dp else 28.dp
          Column(
-@@ -336,32 +395,39 @@ private fun AutomotiveTrackAndProgress(
+@@ -336,32 +409,39 @@ private fun AutomotiveTrackAndProgress(
                          overflow = TextOverflow.Ellipsis,
                          modifier = Modifier.weight(1f, fill = false),
                      )
@@ -350,7 +371,7 @@ index 1aa0ba8..6bc8a29 100644
          }
      }
  }
-@@ -387,16 +453,12 @@ private fun AutomotiveSwipeableArtwork(
+@@ -387,16 +467,12 @@ private fun AutomotiveSwipeableArtwork(
          animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
          label = "automotive-artwork-swipe-offset",
      )
@@ -373,7 +394,7 @@ index 1aa0ba8..6bc8a29 100644
      }
      Box(
          modifier = modifier
-@@ -475,6 +537,7 @@ private fun AutomotiveMetadataNavigationRow(
+@@ -475,6 +551,7 @@ private fun AutomotiveMetadataNavigationRow(
      onlineNavigationSourceId: String?,
      onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
      modifier: Modifier = Modifier,
@@ -381,7 +402,7 @@ index 1aa0ba8..6bc8a29 100644
  ) {
      val navigationTargets = remember(
          snapshot.currentDisplayAlbumTitle,
-@@ -517,7 +580,7 @@ private fun AutomotiveMetadataNavigationRow(
+@@ -517,7 +594,7 @@ private fun AutomotiveMetadataNavigationRow(
              onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
              modifier = Modifier.weight(1f, fill = false),
          )
@@ -390,7 +411,7 @@ index 1aa0ba8..6bc8a29 100644
              Text(
                  text = " · ",
                  style = style,
-@@ -567,6 +630,7 @@ private fun AutomotiveMetadataText(
+@@ -567,6 +644,7 @@ private fun AutomotiveMetadataText(
  private fun AutomotivePlaybackProgress(
      snapshot: PlaybackSnapshot,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -398,7 +419,7 @@ index 1aa0ba8..6bc8a29 100644
      modifier: Modifier = Modifier,
  ) {
      var dragFraction by remember(snapshot.currentTrack?.id, snapshot.durationMs) {
-@@ -615,12 +679,79 @@ private fun AutomotivePlaybackProgress(
+@@ -615,12 +693,79 @@ private fun AutomotivePlaybackProgress(
          ) {
              Text(
                  text = formatDuration(snapshot.positionMs),
@@ -480,7 +501,7 @@ index 1aa0ba8..6bc8a29 100644
                  color = Color.White.copy(alpha = 0.74f),
              )
          }
-@@ -734,19 +865,45 @@ private fun AutomotiveLyricsPane(
+@@ -734,19 +879,45 @@ private fun AutomotiveLyricsPane(
      state: PlayerState,
      track: Track,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -534,7 +555,7 @@ index 1aa0ba8..6bc8a29 100644
      }
  }
  
-@@ -792,9 +949,8 @@ internal fun resolveAutomotiveTopControlButtonSize(maxWidth: Dp): Dp =
+@@ -792,9 +963,8 @@ internal fun resolveAutomotiveTopControlButtonSize(maxWidth: Dp): Dp =
      minOf(AutomotiveTopControlsSlotHeight, maxWidth / 3f)
          .coerceAtLeast(AutomotiveControlMinimumTouchSize)
  
@@ -546,7 +567,7 @@ index 1aa0ba8..6bc8a29 100644
  
  internal fun resolveAutomotivePureModeAfterTwoFingerTap(
      isPureMode: Boolean,
-@@ -1190,11 +1346,23 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
+@@ -1190,11 +1360,23 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
  private val AutomotiveFiveControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 5
  private val AutomotivePrimaryControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 3
  private val AutomotiveTopControlsSlotHeight = 64.dp
@@ -570,13 +591,13 @@ index 1aa0ba8..6bc8a29 100644
  internal data class AutomotiveTrackAndProgressLayout(
      val compactVertical: Boolean,
      val artworkSize: Dp,
-@@ -1324,3 +1492,38 @@ private fun automotiveMetadataValue(
+@@ -1324,3 +1506,38 @@ private fun automotiveMetadataValue(
      return primary?.trim()?.takeIf { it.isNotBlank() }
          ?: fallback?.trim()?.takeIf { it.isNotBlank() }
  }
 +
 +private fun TextStyle.scaleFont(scale: Float): TextStyle =
-+    this.copy(fontSize = this.fontSize * scale)
++    this.copy(fontSize = this.fontSize * scale, lineHeight = this.lineHeight * scale)
 +
 +@Composable
 +private fun AutomotiveClock(

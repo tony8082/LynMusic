@@ -2802,6 +2802,59 @@ internal fun SourcesTab(
                 title = "导入来源",
                 subtitle = "本地文件夹原地索引，Samba、WebDAV、Navidrome、Subsonic/OpenSubsonic 与 Emby 作为远程音乐库。"
             )
+            if (state.capabilities.supportsLocalFolderImport) {
+                MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(18.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(
+                                text = "扫描本地文件夹",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                text = "快速授予本地音乐目录权限并建立索引，适合车机离线曲库。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Button(
+                            onClick = {
+                                when (localFolderClickAction) {
+                                    LocalFolderImportClickAction.ShowPickerModeDialog -> {
+                                        showLocalFolderPickerModeDialog = true
+                                    }
+                                    LocalFolderImportClickAction.ImportBuiltIn -> {
+                                        onImportIntent(
+                                            ImportIntent.ImportLocalFolderWithPickerMode(LocalFolderPickerMode.BuiltIn),
+                                        )
+                                    }
+                                    LocalFolderImportClickAction.ImportAutomatic -> {
+                                        onImportIntent(ImportIntent.ImportLocalFolder)
+                                    }
+                                }
+                            },
+                            enabled = !state.isWorking,
+                        ) {
+                            if (isLocalFolderScanning) {
+                                ButtonLoadingIndicator()
+                            } else {
+                                Icon(Icons.Rounded.FolderOpen, null)
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Text(if (isLocalFolderScanning) "扫描中" else "开始扫描")
+                        }
+                    }
+                }
+            }
             state.message?.let { message ->
                 BannerCard(message = message, onDismiss = { onImportIntent(ImportIntent.ClearMessage) })
             }

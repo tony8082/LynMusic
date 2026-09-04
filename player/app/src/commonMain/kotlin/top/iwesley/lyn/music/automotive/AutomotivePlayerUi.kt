@@ -249,8 +249,8 @@ private fun AutomotivePlaybackPane(
                                 icon = Icons.Rounded.Fullscreen,
                                 contentDescription = "纯净模式",
                                 onClick = { onPureModeChanged(true) },
-                                buttonSize = topControlButtonSize,
-                                iconSize = 30.dp * topControlIconScale * carUiScale,
+                                buttonSize = topControlButtonSize * 1.3f,
+                                iconSize = 30.dp * topControlIconScale * carUiScale * 1.3f,
                             )
                         }
                     }
@@ -729,15 +729,15 @@ private fun AutomotivePureModeProgressRow(
             icon = playbackModeIcon(snapshot.mode),
             contentDescription = "切换播放模式",
             onClick = { onPlayerIntent(PlayerIntent.CycleMode) },
-            buttonSize = 48.dp,
-            iconSize = 26.dp,
+            buttonSize = 64.dp,
+            iconSize = 34.dp,
         )
         AutomotiveRoundIconButton(
             icon = Icons.Rounded.Search,
             contentDescription = "搜索歌词",
             onClick = { onPlayerIntent(PlayerIntent.OpenManualLyricsSearch) },
-            buttonSize = 48.dp,
-            iconSize = 26.dp,
+            buttonSize = 64.dp,
+            iconSize = 34.dp,
         )
         Column(
             modifier = Modifier.weight(1f),

@@ -68,6 +68,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
+import coil3.compose.LocalPlatformContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -723,6 +724,43 @@ private fun GeneralSettingsPane(
                     },
                     colors = SwitchDefaults.colors(),
                 )
+            }
+        }
+        if (currentPlatformDescriptor.isAndroidPlatform()) {
+            val autoStartPlatformContext = LocalPlatformContext.current
+            var autoStartOnBoot by remember { mutableStateOf(readAutoStartOnBoot(autoStartPlatformContext)) }
+            MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            text = "开机自动启动",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = "设备开机完成后自动打开本应用（车机推荐开启）。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = shellColors.secondaryText,
+                        )
+                    }
+                    Switch(
+                        checked = autoStartOnBoot,
+                        onCheckedChange = { enabled ->
+                            autoStartOnBoot = enabled
+                            writeAutoStartOnBoot(autoStartPlatformContext, enabled)
+                        },
+                        colors = SwitchDefaults.colors(),
+                    )
+                }
             }
         }
         if (showAutoOpenPlayerOnStartupSetting) {

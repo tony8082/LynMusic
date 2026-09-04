@@ -12,11 +12,44 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import top.iwesley.lyn.music.core.model.AppThemePalette
 import top.iwesley.lyn.music.core.model.AppThemeTextPalette
 import top.iwesley.lyn.music.core.model.AppThemeTokens
 import top.iwesley.lyn.music.core.model.CLASSIC_APP_THEME_TOKENS
 import top.iwesley.lyn.music.core.model.deriveAppThemePalette
+
+// 车机版：全局 Typography 缩放（影响设置/曲库/我的等非播放页面）
+// 字号 ×1.5，行高 ×1.7（v4：行高比字号多放大一点，增加列表行间距/呼吸感）
+// 播放页文字走 AutomotivePlayerUi 内的 AutomotiveTypography 基准 + scaleFont，
+// 不受此处缩放影响（v3 曾因双重放大出 bug，v4 已修复）
+private const val CarTypographyScale = 1.5f
+private const val CarTypographyLineHeightScale = 1.7f
+
+private fun scaledTypography(factor: Float, lineHeightFactor: Float): Typography {
+    val base = Typography()
+    fun TextStyle.scaled() = copy(
+        fontSize = fontSize * factor,
+        lineHeight = lineHeight * lineHeightFactor,
+    )
+    return Typography(
+        displayLarge = base.displayLarge.scaled(),
+        displayMedium = base.displayMedium.scaled(),
+        displaySmall = base.displaySmall.scaled(),
+        headlineLarge = base.headlineLarge.scaled(),
+        headlineMedium = base.headlineMedium.scaled(),
+        headlineSmall = base.headlineSmall.scaled(),
+        titleLarge = base.titleLarge.scaled(),
+        titleMedium = base.titleMedium.scaled(),
+        titleSmall = base.titleSmall.scaled(),
+        bodyLarge = base.bodyLarge.scaled(),
+        bodyMedium = base.bodyMedium.scaled(),
+        bodySmall = base.bodySmall.scaled(),
+        labelLarge = base.labelLarge.scaled(),
+        labelMedium = base.labelMedium.scaled(),
+        labelSmall = base.labelSmall.scaled(),
+    )
+}
 
 @Immutable
 data class MainShellColors(
@@ -54,9 +87,10 @@ fun LynMusicTheme(
             textPalette = textPalette,
         )
     }
+    val scaledTypo = remember { scaledTypography(CarTypographyScale, CarTypographyLineHeightScale) }
     MaterialTheme(
         colorScheme = palette.toColorScheme(),
-        typography = Typography(),
+        typography = scaledTypo,
     ) {
         CompositionLocalProvider(
             LocalContentColor provides Color(palette.onBackgroundArgb),

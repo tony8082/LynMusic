@@ -60,6 +60,7 @@ kotlin {
             implementation(libs.coil.compose)
             implementation(libs.coil.network.ktor3)
             implementation(compose.materialIconsExtended)
+            implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.8.0")
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

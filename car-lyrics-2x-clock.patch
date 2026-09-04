@@ -57,6 +57,18 @@ index 0000000..01a938b
 +        }
 +    }
 +}
+diff --git a/player/app/build.gradle.kts b/player/app/build.gradle.kts
+index 47637f1..1cf21ab 100644
+--- a/player/app/build.gradle.kts
++++ b/player/app/build.gradle.kts
+@@ -60,6 +60,7 @@ kotlin {
+             implementation(libs.coil.compose)
+             implementation(libs.coil.network.ktor3)
+             implementation(compose.materialIconsExtended)
++            implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.8.0")
+         }
+         commonTest.dependencies {
+             implementation(libs.kotlin.test)
 diff --git a/player/app/src/androidMain/kotlin/top/iwesley/lyn/music/AutoStartBootPrefs.android.kt b/player/app/src/androidMain/kotlin/top/iwesley/lyn/music/AutoStartBootPrefs.android.kt
 new file mode 100644
 index 0000000..c355efa
@@ -160,6 +172,109 @@ index ca2a2d3..c60e8da 100644
              state.message?.let { message ->
                  BannerCard(message = message, onDismiss = { onImportIntent(ImportIntent.ClearMessage) })
              }
+diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/PlayerLyricsShareUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/PlayerLyricsShareUi.kt
+index df8756c..ee5f4ac 100644
+--- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/PlayerLyricsShareUi.kt
++++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/PlayerLyricsShareUi.kt
+@@ -88,10 +88,12 @@ import androidx.compose.ui.platform.LocalDensity
+ import androidx.compose.ui.semantics.contentDescription
+ import androidx.compose.ui.semantics.semantics
+ import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.text.TextStyle
+ import androidx.compose.ui.text.style.TextAlign
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.IntSize
+ import androidx.compose.ui.unit.dp
++import androidx.compose.ui.unit.sp
+ import top.iwesley.lyn.music.core.model.DEFAULT_LYRICS_SHARE_FONT_KEY
+ import top.iwesley.lyn.music.core.model.LyricsDocument
+ import top.iwesley.lyn.music.core.model.LyricsSearchCandidate
+@@ -129,6 +131,7 @@ internal fun PlayerLyricsPane(
+     compact: Boolean = false,
+     pure: Boolean = false,
+     mobilePlayback: Boolean = false,
++    lyricsTextScale: Float = 1f,
+ ) {
+     val listState = rememberLazyListState()
+     val lyricsPrimaryTextColor = Color.White
+@@ -330,16 +333,28 @@ internal fun PlayerLyricsPane(
+                         pure -> 600.dp
+                         else -> 520.dp
+                     }
+-                    val lyricsLineSpacing = when {
++                    val lyricsLineSpacing = (when {
+                         compact -> 12.dp
+                         pure -> 24.dp
+                         else -> 16.dp
+-                    }
+-                    val translationLineSpacing = when {
++                    }) * lyricsTextScale
++                    val translationLineSpacing = (when {
+                         compact -> 3.dp
+                         pure -> 6.dp
+                         else -> 4.dp
+-                    }
++                    }) * lyricsTextScale
++                    val lyricsHighlightTextStyle = TextStyle(
++                        fontSize = (24f * lyricsTextScale).sp,
++                        lineHeight = (32f * lyricsTextScale).sp,
++                    )
++                    val lyricsNormalTextStyle = TextStyle(
++                        fontSize = (22f * lyricsTextScale).sp,
++                        lineHeight = (30f * lyricsTextScale).sp,
++                    )
++                    val lyricsTranslationTextStyle = TextStyle(
++                        fontSize = (16f * lyricsTextScale).sp,
++                        lineHeight = (22f * lyricsTextScale).sp,
++                    )
+                     LazyColumn(
+                         modifier = Modifier
+                             .fillMaxHeight()
+@@ -405,7 +420,7 @@ internal fun PlayerLyricsPane(
+                                             currentPositionMs = activeLyricsPositionMs,
+                                             activeColor = animatedColor,
+                                             inactiveColor = lyricsSecondaryTextColor.copy(alpha = 0.78f),
+-                                            style = MaterialTheme.typography.headlineSmall,
++                                            style = lyricsHighlightTextStyle,
+                                             textAlign = TextAlign.Start,
+                                             fontWeight = FontWeight.Bold,
+                                             modifier = Modifier.fillMaxWidth(),
+@@ -413,7 +428,7 @@ internal fun PlayerLyricsPane(
+                                     } else {
+                                         Text(
+                                             text = line.text,
+-                                            style = if (isHighlighted) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleLarge,
++                                            style = if (isHighlighted) lyricsHighlightTextStyle else lyricsNormalTextStyle,
+                                             color = animatedColor,
+                                             textAlign = TextAlign.Start,
+                                             fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Normal,
+@@ -422,7 +437,7 @@ internal fun PlayerLyricsPane(
+                                     }
+                                     Text(
+                                         text = translationText,
+-                                        style = if (isHighlighted) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge,
++                                        style = lyricsTranslationTextStyle,
+                                         color = lyricsSecondaryTextColor.copy(alpha = if (isHighlighted) 0.9f else 0.72f),
+                                         textAlign = TextAlign.Start,
+                                         fontWeight = FontWeight.Normal,
+@@ -435,7 +450,7 @@ internal fun PlayerLyricsPane(
+                                     currentPositionMs = activeLyricsPositionMs,
+                                     activeColor = animatedColor,
+                                     inactiveColor = lyricsSecondaryTextColor.copy(alpha = 0.78f),
+-                                    style = MaterialTheme.typography.headlineSmall,
++                                    style = lyricsHighlightTextStyle,
+                                     textAlign = TextAlign.Start,
+                                     fontWeight = FontWeight.Bold,
+                                     modifier = lineModifier,
+@@ -443,7 +458,7 @@ internal fun PlayerLyricsPane(
+                             } else {
+                                 Text(
+                                     text = line.text,
+-                                    style = if (isHighlighted) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleLarge,
++                                    style = if (isHighlighted) lyricsHighlightTextStyle else lyricsNormalTextStyle,
+                                     color = animatedColor,
+                                     textAlign = TextAlign.Start,
+                                     fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Normal,
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/SettingsUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/SettingsUi.kt
 index 1e5fc1c..b5ff8a4 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/SettingsUi.kt
@@ -765,6 +880,68 @@ index 1aa0ba8..8af09f2 100644
 +        )
 +    }
 +}
+diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/ui/LynMusicTheme.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/ui/LynMusicTheme.kt
+index 7e3cc1d..6d49a4d 100644
+--- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/ui/LynMusicTheme.kt
++++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/ui/LynMusicTheme.kt
+@@ -12,12 +12,45 @@ import androidx.compose.runtime.ReadOnlyComposable
+ import androidx.compose.runtime.remember
+ import androidx.compose.runtime.staticCompositionLocalOf
+ import androidx.compose.ui.graphics.Color
++import androidx.compose.ui.text.TextStyle
+ import top.iwesley.lyn.music.core.model.AppThemePalette
+ import top.iwesley.lyn.music.core.model.AppThemeTextPalette
+ import top.iwesley.lyn.music.core.model.AppThemeTokens
+ import top.iwesley.lyn.music.core.model.CLASSIC_APP_THEME_TOKENS
+ import top.iwesley.lyn.music.core.model.deriveAppThemePalette
+ 
++// 车机版：全局 Typography 缩放（影响设置/曲库/我的等非播放页面）
++// 字号 ×1.5，行高 ×1.7（v4：行高比字号多放大一点，增加列表行间距/呼吸感）
++// 播放页文字走 AutomotivePlayerUi 内的 AutomotiveTypography 基准 + scaleFont，
++// 不受此处缩放影响（v3 曾因双重放大出 bug，v4 已修复）
++private const val CarTypographyScale = 1.5f
++private const val CarTypographyLineHeightScale = 1.7f
++
++private fun scaledTypography(factor: Float, lineHeightFactor: Float): Typography {
++    val base = Typography()
++    fun TextStyle.scaled() = copy(
++        fontSize = fontSize * factor,
++        lineHeight = lineHeight * lineHeightFactor,
++    )
++    return Typography(
++        displayLarge = base.displayLarge.scaled(),
++        displayMedium = base.displayMedium.scaled(),
++        displaySmall = base.displaySmall.scaled(),
++        headlineLarge = base.headlineLarge.scaled(),
++        headlineMedium = base.headlineMedium.scaled(),
++        headlineSmall = base.headlineSmall.scaled(),
++        titleLarge = base.titleLarge.scaled(),
++        titleMedium = base.titleMedium.scaled(),
++        titleSmall = base.titleSmall.scaled(),
++        bodyLarge = base.bodyLarge.scaled(),
++        bodyMedium = base.bodyMedium.scaled(),
++        bodySmall = base.bodySmall.scaled(),
++        labelLarge = base.labelLarge.scaled(),
++        labelMedium = base.labelMedium.scaled(),
++        labelSmall = base.labelSmall.scaled(),
++    )
++}
++
+ @Immutable
+ data class MainShellColors(
+     val appGradientTop: Color,
+@@ -54,9 +87,10 @@ fun LynMusicTheme(
+             textPalette = textPalette,
+         )
+     }
++    val scaledTypo = remember { scaledTypography(CarTypographyScale, CarTypographyLineHeightScale) }
+     MaterialTheme(
+         colorScheme = palette.toColorScheme(),
+-        typography = Typography(),
++        typography = scaledTypo,
+     ) {
+         CompositionLocalProvider(
+             LocalContentColor provides Color(palette.onBackgroundArgb),
 diff --git a/player/app/src/jvmMain/kotlin/top/iwesley/lyn/music/AutoStartBootPrefs.jvm.kt b/player/app/src/jvmMain/kotlin/top/iwesley/lyn/music/AutoStartBootPrefs.jvm.kt
 new file mode 100644
 index 0000000..ecf3531

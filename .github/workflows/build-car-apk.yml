@@ -73,14 +73,20 @@ jobs:
           java-version: 21
 
       # 6) Android SDK
+      #    ⚠️ 不再用 android-actions/setup-android@v3：该 action 内部执行 `sdkmanager tools`，
+      #       而新版 runner 镜像已移除 legacy `tools` 包，导致 step 直接失败。
+      #       改为直接调用 runner 预装的 SDK 的 sdkmanager 安装所需组件并显式设置 ANDROID_HOME。
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      # 7) 安装 SDK 平台 + NDK（automotiveApp 需要 NDK 28.2.13676358）
-      - name: Accept licenses & install SDK platform
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platforms;android-36" "platform-tools" "ndk;28.2.13676358" || true
+          SDK="/usr/local/lib/android/sdk"
+          SM=$(ls "$SDK"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -1)
+          echo "sdkmanager=$SM"
+          yes | "$SM" --licenses > /dev/null || true
+          "$SM" "platform-tools" "platforms;android-36" "ndk;28.2.13676358" || true
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
 
       - name: Make gradlew executable
         run: chmod +x src/gradlew
@@ -93,6 +99,8 @@ jobs:
           cd src
           ./gradlew :automotiveApp:assembleRelease --no-daemon --no-configuration-cache --stacktrace
         env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
           ANDROID_SIGNING_STORE_FILE: /home/runner/lynxl.jks
           ANDROID_SIGNING_STORE_PASSWORD: android
           ANDROID_SIGNING_KEY_ALIAS: lynxl

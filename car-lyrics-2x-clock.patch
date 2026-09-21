@@ -96,6 +96,53 @@ index 0000000..c355efa
 +        .putBoolean(AUTO_START_PREF_KEY, enabled)
 +        .apply()
 +}
+diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/App.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/App.kt
+index e25bda7..e46a92f 100644
+--- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/App.kt
++++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/App.kt
+@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
+ import androidx.compose.runtime.mutableStateOf
+ import androidx.compose.runtime.remember
+ import androidx.compose.runtime.rememberCoroutineScope
++import androidx.compose.runtime.rememberUpdatedState
+ import androidx.compose.runtime.saveable.rememberSaveable
+ import androidx.compose.runtime.setValue
+ import androidx.compose.runtime.withFrameNanos
+@@ -30,6 +31,7 @@ import androidx.compose.ui.platform.LocalDensity
+ import androidx.compose.ui.unit.dp
+ import kotlinx.coroutines.CancellationException
+ import kotlinx.coroutines.CoroutineScope
++import kotlinx.coroutines.delay
+ import kotlinx.coroutines.Job
+ import kotlinx.coroutines.cancelAndJoin
+ import kotlinx.coroutines.flow.combine
+@@ -711,6 +713,26 @@ fun App(
+                 val mobilePortraitMiniPlayer = layoutProfile.isCompactLayout
+                 val shellColors = mainShellColors
+                 val effectivePlayerSnapshot = playerState.effectiveSnapshot
++                // v14：全局空闲自动最大化——APP 任意界面开始播放且 20 秒无操作即展开播放页并进入纯净模式
++                // （车机放下即大字；pure 标志已提到 store，故播放页未展开时也能触发）
++                val isAutomotiveIdle = component.platform.isAndroidAutomotivePlatform()
++                val currentPlayerStateForIdle by rememberUpdatedState(playerState)
++                val idleTrackId = playerState.effectiveSnapshot.currentTrack?.id
++                val idlePlaying = playerState.effectiveSnapshot.isPlaying
++                LaunchedEffect(idleTrackId, idlePlaying, isAutomotiveIdle) {
++                    if (!isAutomotiveIdle || idleTrackId == null || !idlePlaying) return@LaunchedEffect
++                    // 本次空闲周期起点先复位纯净请求，使从普通态开始计时
++                    component.playerStore.dispatch(PlayerIntent.EnterPureMode(false))
++                    delay(20_000L)
++                    val snap = currentPlayerStateForIdle.effectiveSnapshot
++                    if (snap.isPlaying && snap.currentTrack?.id == idleTrackId &&
++                        !currentPlayerStateForIdle.pureModeRequested
++                    ) {
++                        // 先置纯净请求再展开，避免展开瞬间普通页闪一帧
++                        component.playerStore.dispatch(PlayerIntent.EnterPureMode(true))
++                        component.playerStore.dispatch(PlayerIntent.ExpandedChanged(true))
++                    }
++                }
+                 Box(
+                     modifier = Modifier
+                         .fillMaxSize()
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AutoStartBootPrefs.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AutoStartBootPrefs.kt
 new file mode 100644
 index 0000000..1bfc08e
@@ -109,7 +156,7 @@ index 0000000..1bfc08e
 +expect fun readAutoStartOnBoot(context: Any): Boolean
 +expect fun writeAutoStartOnBoot(context: Any, enabled: Boolean)
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
-index ca2a2d3..e81f562 100644
+index ca2a2d3..01b8056 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
 @@ -1423,6 +1423,12 @@ private fun LibraryBrowserTab(
@@ -138,7 +185,20 @@ index ca2a2d3..e81f562 100644
                      if (selectedFolderChildren.isNotEmpty()) {
                          item {
                              SectionTitle(title = "文件夹", subtitle = "当前目录下的子文件夹。")
-@@ -2802,6 +2814,59 @@ internal fun SourcesTab(
+@@ -1682,6 +1694,12 @@ private fun LibraryBrowserTab(
+                     } else {
+                         when (rootView) {
+                             LibraryBrowserRootView.Tracks -> {
++                                item {
++                                    LibraryDetailPlayAllButton(
++                                        enabled = visibleTracks.isNotEmpty(),
++                                        onPlayAll = { actions.onPlayTracks(visibleTracks, 0) },
++                                    )
++                                }
+                                 itemsIndexed(
+                                     state.tracks,
+                                     key = { _, item -> item.id }) { index, trackItem ->
+@@ -2802,6 +2820,59 @@ internal fun SourcesTab(
                  title = "导入来源",
                  subtitle = "本地文件夹原地索引，Samba、WebDAV、Navidrome、Subsonic/OpenSubsonic 与 Emby 作为远程音乐库。"
              )
@@ -198,7 +258,7 @@ index ca2a2d3..e81f562 100644
              state.message?.let { message ->
                  BannerCard(message = message, onDismiss = { onImportIntent(ImportIntent.ClearMessage) })
              }
-@@ -3889,3 +3954,37 @@ internal fun remoteSourceEditorTrackCountLabel(
+@@ -3889,3 +3960,37 @@ internal fun remoteSourceEditorTrackCountLabel(
  private fun isMobileSourcesPlatform(platform: PlatformDescriptor): Boolean {
      return platform.name == "Android" || platform.name == "iPhone / iPad"
  }
@@ -340,28 +400,65 @@ index df8756c..ee5f4ac 100644
                                      textAlign = TextAlign.Start,
                                      fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Normal,
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/PlayerUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/PlayerUi.kt
-index 906e8b6..5251eaf 100644
+index 906e8b6..85fb662 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/PlayerUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/PlayerUi.kt
-@@ -1166,6 +1166,18 @@ private fun PlayerOverlay(
+@@ -1165,7 +1165,9 @@ private fun PlayerOverlay(
+     val track = snapshot.currentTrack ?: return
      val desktopWindowChrome = currentDesktopWindowChrome
      val defaultBackgroundColor = Color(0xFF232325)
-     var isPureModeRequested by remember { mutableStateOf(false) }
-+    // v13：播放开始且 25 秒无操作（未切歌/未暂停）自动进入最大化页（车机放下即大字）
-+    val idleAutoMaximizeMs = 25_000L
-+    val autoMaximizeTrackId = snapshot.currentTrack?.id
-+    val autoMaximizePlaying = snapshot.isPlaying
-+    LaunchedEffect(autoMaximizeTrackId, autoMaximizePlaying) {
-+        if (autoMaximizeTrackId == null || !autoMaximizePlaying || isPureModeRequested) return@LaunchedEffect
-+        kotlinx.coroutines.delay(idleAutoMaximizeMs)
-+        val s = state.effectiveSnapshot
-+        if (!isPureModeRequested && s.isPlaying && s.currentTrack?.id == autoMaximizeTrackId) {
-+            isPureModeRequested = true
-+        }
-+    }
+-    var isPureModeRequested by remember { mutableStateOf(false) }
++    // v14：pure 模式改由 store（pureModeRequested）驱动，以支持"任意界面 20 秒空闲自动最大化"
++    // （原本地 remember 状态在播放页未展开时不被组合，无法覆盖库界面场景）
++    val isPureModeRequested = state.pureModeRequested
      val artworkLocator = snapshot.currentDisplayArtworkLocator
      val artworkCacheKey = trackArtworkCacheKey(track)
      val paletteArtworkBitmap = rememberPlatformArtworkBitmap(
+@@ -1302,7 +1304,7 @@ private fun PlayerOverlay(
+                             isPureMode = isPureMode,
+                         )
+                     ) {
+-                        isPureModeRequested = false
++                        onPlayerIntent(PlayerIntent.EnterPureMode(false))
+                     } else {
+                         onPlayerIntent(PlayerIntent.ExpandedChanged(false))
+                     }
+@@ -1310,7 +1312,7 @@ private fun PlayerOverlay(
+             )
+             LaunchedEffect(wide) {
+                 if (!wide) {
+-                    isPureModeRequested = false
++                    onPlayerIntent(PlayerIntent.EnterPureMode(false))
+                 }
+             }
+             LaunchedEffect(platform.name, maxWidth, maxHeight) {
+@@ -1333,7 +1335,7 @@ private fun PlayerOverlay(
+                     onlineNavigationSourceId = onlineNavigationSourceId,
+                     onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
+                     onPlayerIntent = onPlayerIntent,
+-                    onPureModeChanged = { isPureModeRequested = it },
++                    onPureModeChanged = { onPlayerIntent(PlayerIntent.EnterPureMode(it)) },
+                     modifier = Modifier.fillMaxSize(),
+                 )
+             } else {
+@@ -1393,7 +1395,7 @@ private fun PlayerOverlay(
+                                         )
+                                     }
+                                     IconButton(
+-                                        onClick = { isPureModeRequested = true },
++                                        onClick = { onPlayerIntent(PlayerIntent.EnterPureMode(true)) },
+                                         modifier = Modifier.size(52.dp),
+                                     ) {
+                                         Icon(
+@@ -1538,7 +1540,7 @@ private fun PlayerOverlay(
+                             .clickable(
+                                 interactionSource = remember { MutableInteractionSource() },
+                                 indication = null,
+-                            ) { isPureModeRequested = false },
++                            ) { onPlayerIntent(PlayerIntent.EnterPureMode(false)) },
+                     )
+                 }
+             }
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/SettingsUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/SettingsUi.kt
 index 1e5fc1c..b5ff8a4 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/SettingsUi.kt
@@ -419,7 +516,7 @@ index 1e5fc1c..b5ff8a4 100644
              MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
                  Row(
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
-index 1aa0ba8..be51640 100644
+index 1aa0ba8..ed744f3 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 @@ -3,6 +3,7 @@ package top.iwesley.lyn.music.automotive
@@ -444,8 +541,11 @@ index 1aa0ba8..be51640 100644
  import androidx.compose.runtime.getValue
  import androidx.compose.runtime.mutableStateOf
  import androidx.compose.runtime.remember
-@@ -62,8 +64,12 @@ import androidx.compose.ui.text.TextStyle
+@@ -60,10 +62,15 @@ import androidx.compose.ui.input.pointer.pointerInput
+ import androidx.compose.ui.platform.LocalDensity
+ import androidx.compose.ui.text.TextStyle
  import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.text.style.TextAlign
  import androidx.compose.ui.text.style.TextOverflow
  import androidx.compose.ui.unit.Dp
 +import kotlin.time.Clock
@@ -457,7 +557,7 @@ index 1aa0ba8..be51640 100644
  import kotlin.math.roundToInt
  import kotlin.math.roundToLong
  import top.iwesley.lyn.music.ArtworkDecodeSize
-@@ -122,9 +128,13 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
+@@ -122,9 +129,13 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
          Row(
              modifier = Modifier
                  .fillMaxSize()
@@ -472,7 +572,7 @@ index 1aa0ba8..be51640 100644
                  ),
              horizontalArrangement = Arrangement.spacedBy(frameLayout.paneGap),
              verticalAlignment = Alignment.CenterVertically,
-@@ -154,6 +164,9 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
+@@ -154,6 +165,9 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
                  state = state,
                  track = track,
                  onPlayerIntent = onPlayerIntent,
@@ -482,7 +582,7 @@ index 1aa0ba8..be51640 100644
                  modifier = Modifier
                      .weight(AutomotiveLyricsPaneWeight)
                      .fillMaxHeight(),
-@@ -180,6 +193,7 @@ private fun AutomotivePlaybackPane(
+@@ -180,6 +194,7 @@ private fun AutomotivePlaybackPane(
      controlsReferenceMaxWidth: Dp,
      controlsReferenceMaxHeight: Dp,
      onPureModeChanged: (Boolean) -> Unit,
@@ -490,7 +590,7 @@ index 1aa0ba8..be51640 100644
      modifier: Modifier = Modifier,
  ) {
      val snapshot = state.snapshot
-@@ -194,14 +208,19 @@ private fun AutomotivePlaybackPane(
+@@ -194,14 +209,19 @@ private fun AutomotivePlaybackPane(
          val pureModePresentation = resolveAutomotivePureModePresentation(isPureMode)
          val topControlButtonSize = resolveAutomotiveTopControlButtonSize(maxWidth)
          val topControlIconScale = topControlButtonSize / AutomotiveTopControlsSlotHeight
@@ -512,7 +612,7 @@ index 1aa0ba8..be51640 100644
              ) {
                  if (pureModePresentation.showTopControls) {
                      Row(
-@@ -214,24 +233,61 @@ private fun AutomotivePlaybackPane(
+@@ -214,24 +234,61 @@ private fun AutomotivePlaybackPane(
                              contentDescription = "收起播放页",
                              onClick = { onPlayerIntent(PlayerIntent.ExpandedChanged(false)) },
                              buttonSize = topControlButtonSize,
@@ -579,7 +679,7 @@ index 1aa0ba8..be51640 100644
                              )
                          }
                      }
-@@ -249,14 +305,16 @@ private fun AutomotivePlaybackPane(
+@@ -249,14 +306,16 @@ private fun AutomotivePlaybackPane(
                  onlineNavigationSourceId = onlineNavigationSourceId,
                  onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
                  onPlayerIntent = onPlayerIntent,
@@ -597,7 +697,7 @@ index 1aa0ba8..be51640 100644
                  contentAlignment = Alignment.Center,
              ) {
                  if (pureModePresentation.showPlaybackControls) {
-@@ -286,19 +344,35 @@ private fun AutomotiveTrackAndProgress(
+@@ -286,19 +345,35 @@ private fun AutomotiveTrackAndProgress(
      onlineNavigationSourceId: String?,
      onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -635,7 +735,16 @@ index 1aa0ba8..be51640 100644
          val inlineActionButtonSize = if (compactVertical) 44.dp else 52.dp
          val inlineActionIconSize = if (compactVertical) 24.dp else 28.dp
          Column(
-@@ -332,36 +406,45 @@ private fun AutomotiveTrackAndProgress(
+@@ -306,7 +381,7 @@ private fun AutomotiveTrackAndProgress(
+                 .fillMaxSize()
+                 .padding(bottom = layout.bottomPadding),
+             horizontalAlignment = Alignment.CenterHorizontally,
+-            verticalArrangement = Arrangement.Bottom,
++            verticalArrangement = if (isPureMode) Arrangement.Center else Arrangement.Bottom,
+         ) {
+             AutomotiveSwipeableArtwork(
+                 snapshot = snapshot,
+@@ -332,36 +407,45 @@ private fun AutomotiveTrackAndProgress(
                          style = titleStyle,
                          fontWeight = FontWeight.ExtraBold,
                          color = Color.White.copy(alpha = 0.96f),
@@ -701,7 +810,7 @@ index 1aa0ba8..be51640 100644
          }
      }
  }
-@@ -387,16 +470,12 @@ private fun AutomotiveSwipeableArtwork(
+@@ -387,16 +471,12 @@ private fun AutomotiveSwipeableArtwork(
          animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
          label = "automotive-artwork-swipe-offset",
      )
@@ -724,7 +833,7 @@ index 1aa0ba8..be51640 100644
      }
      Box(
          modifier = modifier
-@@ -475,6 +554,7 @@ private fun AutomotiveMetadataNavigationRow(
+@@ -475,6 +555,7 @@ private fun AutomotiveMetadataNavigationRow(
      onlineNavigationSourceId: String?,
      onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
      modifier: Modifier = Modifier,
@@ -732,16 +841,28 @@ index 1aa0ba8..be51640 100644
  ) {
      val navigationTargets = remember(
          snapshot.currentDisplayAlbumTitle,
-@@ -517,7 +597,7 @@ private fun AutomotiveMetadataNavigationRow(
+@@ -515,9 +596,9 @@ private fun AutomotiveMetadataNavigationRow(
+             style = style,
+             color = color,
              onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
-             modifier = Modifier.weight(1f, fill = false),
+-            modifier = Modifier.weight(1f, fill = false),
++            modifier = Modifier.weight(1f, fill = true),
          )
 -        if (albumLabel != null) {
 +        if (showAlbum && albumLabel != null) {
              Text(
                  text = " · ",
                  style = style,
-@@ -548,18 +628,20 @@ private fun AutomotiveMetadataText(
+@@ -531,7 +612,7 @@ private fun AutomotiveMetadataNavigationRow(
+                 style = style,
+                 color = color,
+                 onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
+-                modifier = Modifier.weight(1f, fill = false),
++                modifier = Modifier.weight(1f, fill = true),
+             )
+         }
+     }
+@@ -548,18 +629,21 @@ private fun AutomotiveMetadataText(
  ) {
      Text(
          text = text,
@@ -767,10 +888,11 @@ index 1aa0ba8..be51640 100644
          maxLines = 1,
 -        overflow = TextOverflow.Ellipsis,
 +        overflow = TextOverflow.Clip,
++        textAlign = TextAlign.Center,
      )
  }
  
-@@ -567,6 +649,7 @@ private fun AutomotiveMetadataText(
+@@ -567,6 +651,7 @@ private fun AutomotiveMetadataText(
  private fun AutomotivePlaybackProgress(
      snapshot: PlaybackSnapshot,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -778,7 +900,7 @@ index 1aa0ba8..be51640 100644
      modifier: Modifier = Modifier,
  ) {
      var dragFraction by remember(snapshot.currentTrack?.id, snapshot.durationMs) {
-@@ -615,18 +698,107 @@ private fun AutomotivePlaybackProgress(
+@@ -615,18 +700,107 @@ private fun AutomotivePlaybackProgress(
          ) {
              Text(
                  text = formatDuration(snapshot.positionMs),
@@ -888,7 +1010,7 @@ index 1aa0ba8..be51640 100644
  @Composable
  private fun AutomotiveRoundedSliderTrack(
      progressFraction: Float,
-@@ -734,19 +906,45 @@ private fun AutomotiveLyricsPane(
+@@ -734,19 +908,45 @@ private fun AutomotiveLyricsPane(
      state: PlayerState,
      track: Track,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -942,7 +1064,7 @@ index 1aa0ba8..be51640 100644
      }
  }
  
-@@ -792,9 +990,8 @@ internal fun resolveAutomotiveTopControlButtonSize(maxWidth: Dp): Dp =
+@@ -792,9 +992,8 @@ internal fun resolveAutomotiveTopControlButtonSize(maxWidth: Dp): Dp =
      minOf(AutomotiveTopControlsSlotHeight, maxWidth / 3f)
          .coerceAtLeast(AutomotiveControlMinimumTouchSize)
  
@@ -954,7 +1076,7 @@ index 1aa0ba8..be51640 100644
  
  internal fun resolveAutomotivePureModeAfterTwoFingerTap(
      isPureMode: Boolean,
-@@ -1190,11 +1387,23 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
+@@ -1190,11 +1389,23 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
  private val AutomotiveFiveControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 5
  private val AutomotivePrimaryControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 3
  private val AutomotiveTopControlsSlotHeight = 64.dp
@@ -978,7 +1100,7 @@ index 1aa0ba8..be51640 100644
  internal data class AutomotiveTrackAndProgressLayout(
      val compactVertical: Boolean,
      val artworkSize: Dp,
-@@ -1324,3 +1533,38 @@ private fun automotiveMetadataValue(
+@@ -1324,3 +1535,38 @@ private fun automotiveMetadataValue(
      return primary?.trim()?.takeIf { it.isNotBlank() }
          ?: fallback?.trim()?.takeIf { it.isNotBlank() }
  }
@@ -1101,3 +1223,32 @@ index 0000000..6935c00
 +// 非 Android 平台（iOS / macOS）无需开机自启，提供空实现以满足 expect/actual 多平台编译要求。
 +actual fun readAutoStartOnBoot(context: Any): Boolean = false
 +actual fun writeAutoStartOnBoot(context: Any, enabled: Boolean) = Unit
+diff --git a/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/feature/player/PlayerStore.kt b/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/feature/player/PlayerStore.kt
+index 0d86686..e426747 100644
+--- a/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/feature/player/PlayerStore.kt
++++ b/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/feature/player/PlayerStore.kt
+@@ -80,6 +80,8 @@ fun normalizeSleepTimerMinutes(minutes: Int): Int? {
+ data class PlayerState(
+     val snapshot: PlaybackSnapshot = PlaybackSnapshot(),
+     val isExpanded: Boolean = false,
++    // v14：纯净/最大化模式请求（原为 PlayerUi 本地状态；提到 store 以支持"任意界面 20 秒空闲自动最大化"）
++    val pureModeRequested: Boolean = false,
+     val isQueueVisible: Boolean = false,
+     val isLyricsLoading: Boolean = false,
+     val hasLyricsLookupCompleted: Boolean = false,
+@@ -199,6 +201,7 @@ sealed interface PlayerIntent {
+     data object ClearCastMessage : PlayerIntent
+     data object CastNotificationPermissionDenied : PlayerIntent
+     data class ExpandedChanged(val value: Boolean) : PlayerIntent
++    data class EnterPureMode(val value: Boolean) : PlayerIntent
+     data class QueueVisibilityChanged(val value: Boolean) : PlayerIntent
+     data object OpenManualLyricsSearch : PlayerIntent
+     data object DismissManualLyricsSearch : PlayerIntent
+@@ -347,6 +350,7 @@ class PlayerStore(
+                 it.copy(message = "通知权限未开启，后台投屏通知可能不显示。")
+             }
+             is PlayerIntent.ExpandedChanged -> updateState { it.copy(isExpanded = intent.value) }
++            is PlayerIntent.EnterPureMode -> updateState { it.copy(pureModeRequested = intent.value) }
+             is PlayerIntent.QueueVisibilityChanged -> updateState {
+                 it.copy(isQueueVisible = intent.value && it.snapshot.currentTrack != null)
+             }

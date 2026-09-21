@@ -1,4 +1,4 @@
-diff --git a/automotiveApp/src/main/AndroidManifest.xml b/automotiveApp/src/main/AndroidManifest.xml
+﻿diff --git a/automotiveApp/src/main/AndroidManifest.xml b/automotiveApp/src/main/AndroidManifest.xml
 index edeb9eb..a4f5f5f 100644
 --- a/automotiveApp/src/main/AndroidManifest.xml
 +++ b/automotiveApp/src/main/AndroidManifest.xml
@@ -40,9 +40,7 @@ index 0000000..01a938b
 +import android.content.Intent.FLAG_ACTIVITY_NEW_TASK
 +import top.iwesley.lyn.music.readAutoStartOnBoot
 +
-+// 车机开机自启广播接收器：开机完成或应用更新后，若用户在设置页开启“开机自动启动”，则拉起 MainActivity。
-+// 与 player/app 中 SettingsUi 的“开机自动启动”开关共用同一份 SharedPreferences 偏好。
-+class AutoStartBootReceiver : BroadcastReceiver() {
++// 杞︽満寮€鏈鸿嚜鍚箍鎾帴鏀跺櫒锛氬紑鏈哄畬鎴愭垨搴旂敤鏇存柊鍚庯紝鑻ョ敤鎴峰湪璁剧疆椤靛紑鍚€滃紑鏈鸿嚜鍔ㄥ惎鍔ㄢ€濓紝鍒欐媺璧?MainActivity銆?+// 涓?player/app 涓?SettingsUi 鐨勨€滃紑鏈鸿嚜鍔ㄥ惎鍔ㄢ€濆紑鍏冲叡鐢ㄥ悓涓€浠?SharedPreferences 鍋忓ソ銆?+class AutoStartBootReceiver : BroadcastReceiver() {
 +    override fun onReceive(context: Context, intent: Intent) {
 +        when (intent.action) {
 +            Intent.ACTION_BOOT_COMPLETED,
@@ -79,8 +77,7 @@ index 0000000..c355efa
 +
 +import android.content.Context
 +
-+// 车机开机自启开关（自包含实现，与 automotiveApp 的 BootReceiver 共用同一偏好）
-+private const val AUTO_START_PREF_NAME = "lyn_auto_start"
++// 杞︽満寮€鏈鸿嚜鍚紑鍏筹紙鑷寘鍚疄鐜帮紝涓?automotiveApp 鐨?BootReceiver 鍏辩敤鍚屼竴鍋忓ソ锛?+private const val AUTO_START_PREF_NAME = "lyn_auto_start"
 +private const val AUTO_START_PREF_KEY = "auto_start_on_boot"
 +
 +actual fun readAutoStartOnBoot(context: Any): Boolean {
@@ -120,23 +117,21 @@ index e25bda7..e46a92f 100644
                  val mobilePortraitMiniPlayer = layoutProfile.isCompactLayout
                  val shellColors = mainShellColors
                  val effectivePlayerSnapshot = playerState.effectiveSnapshot
-+                // v14：全局空闲自动最大化——APP 任意界面开始播放且 20 秒无操作即展开播放页并进入纯净模式
-+                // （车机放下即大字；pure 标志已提到 store，故播放页未展开时也能触发）
++                // v14锛氬叏灞€绌洪棽鑷姩鏈€澶у寲鈥斺€擜PP 浠绘剰鐣岄潰寮€濮嬫挱鏀句笖 20 绉掓棤鎿嶄綔鍗冲睍寮€鎾斁椤靛苟杩涘叆绾噣妯″紡
++                // 锛堣溅鏈烘斁涓嬪嵆澶у瓧锛沺ure 鏍囧織宸叉彁鍒?store锛屾晠鎾斁椤垫湭灞曞紑鏃朵篃鑳借Е鍙戯級
 +                val isAutomotiveIdle = component.platform.isAndroidAutomotivePlatform()
 +                val currentPlayerStateForIdle by rememberUpdatedState(playerState)
 +                val idleTrackId = playerState.effectiveSnapshot.currentTrack?.id
 +                val idlePlaying = playerState.effectiveSnapshot.isPlaying
 +                LaunchedEffect(idleTrackId, idlePlaying, isAutomotiveIdle) {
 +                    if (!isAutomotiveIdle || idleTrackId == null || !idlePlaying) return@LaunchedEffect
-+                    // 本次空闲周期起点先复位纯净请求，使从普通态开始计时
-+                    component.playerStore.dispatch(PlayerIntent.EnterPureMode(false))
++                    // 鏈绌洪棽鍛ㄦ湡璧风偣鍏堝浣嶇函鍑€璇锋眰锛屼娇浠庢櫘閫氭€佸紑濮嬭鏃?+                    component.playerStore.dispatch(PlayerIntent.EnterPureMode(false))
 +                    delay(20_000L)
 +                    val snap = currentPlayerStateForIdle.effectiveSnapshot
 +                    if (snap.isPlaying && snap.currentTrack?.id == idleTrackId &&
 +                        !currentPlayerStateForIdle.pureModeRequested
 +                    ) {
-+                        // 先置纯净请求再展开，避免展开瞬间普通页闪一帧
-+                        component.playerStore.dispatch(PlayerIntent.EnterPureMode(true))
++                        // 鍏堢疆绾噣璇锋眰鍐嶅睍寮€锛岄伩鍏嶅睍寮€鐬棿鏅€氶〉闂竴甯?+                        component.playerStore.dispatch(PlayerIntent.EnterPureMode(true))
 +                        component.playerStore.dispatch(PlayerIntent.ExpandedChanged(true))
 +                    }
 +                }
@@ -151,9 +146,7 @@ index 0000000..1bfc08e
 @@ -0,0 +1,6 @@
 +package top.iwesley.lyn.music
 +
-+// 车机开机自启开关（自包含 SharedPreferences 实现，避免改动跨平台 Preferences 体系）
-+// 设置页 Switch 与 automotiveApp 的 BootReceiver 共用同一偏好。
-+expect fun readAutoStartOnBoot(context: Any): Boolean
++// 杞︽満寮€鏈鸿嚜鍚紑鍏筹紙鑷寘鍚?SharedPreferences 瀹炵幇锛岄伩鍏嶆敼鍔ㄨ法骞冲彴 Preferences 浣撶郴锛?+// 璁剧疆椤?Switch 涓?automotiveApp 鐨?BootReceiver 鍏辩敤鍚屼竴鍋忓ソ銆?+expect fun readAutoStartOnBoot(context: Any): Boolean
 +expect fun writeAutoStartOnBoot(context: Any, enabled: Boolean)
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
 index ca2a2d3..01b8056 100644
@@ -170,7 +163,7 @@ index ca2a2d3..01b8056 100644
 +                        )
 +                    }
                      item {
-                         SectionTitle(title = "歌曲", subtitle = "当前专辑下的可见歌曲。")
+                         SectionTitle(title = "姝屾洸", subtitle = "褰撳墠涓撹緫涓嬬殑鍙姝屾洸銆?)
                      }
 @@ -1583,6 +1589,12 @@ private fun LibraryBrowserTab(
                              artworkCacheKey = selectedFolderTracks.firstOrNull()?.let(::trackArtworkCacheKey),
@@ -184,7 +177,7 @@ index ca2a2d3..01b8056 100644
 +                    }
                      if (selectedFolderChildren.isNotEmpty()) {
                          item {
-                             SectionTitle(title = "文件夹", subtitle = "当前目录下的子文件夹。")
+                             SectionTitle(title = "鏂囦欢澶?, subtitle = "褰撳墠鐩綍涓嬬殑瀛愭枃浠跺す銆?)
 @@ -1682,6 +1694,12 @@ private fun LibraryBrowserTab(
                      } else {
                          when (rootView) {
@@ -199,8 +192,8 @@ index ca2a2d3..01b8056 100644
                                      state.tracks,
                                      key = { _, item -> item.id }) { index, trackItem ->
 @@ -2802,6 +2820,59 @@ internal fun SourcesTab(
-                 title = "导入来源",
-                 subtitle = "本地文件夹原地索引，Samba、WebDAV、Navidrome、Subsonic/OpenSubsonic 与 Emby 作为远程音乐库。"
+                 title = "瀵煎叆鏉ユ簮",
+                 subtitle = "鏈湴鏂囦欢澶瑰師鍦扮储寮曪紝Samba銆乄ebDAV銆丯avidrome銆丼ubsonic/OpenSubsonic 涓?Emby 浣滀负杩滅▼闊充箰搴撱€?
              )
 +            if (state.capabilities.supportsLocalFolderImport) {
 +                MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
@@ -216,12 +209,12 @@ index ca2a2d3..01b8056 100644
 +                            verticalArrangement = Arrangement.spacedBy(6.dp),
 +                        ) {
 +                            Text(
-+                                text = "扫描本地文件夹",
++                                text = "鎵弿鏈湴鏂囦欢澶?,
 +                                style = MaterialTheme.typography.titleMedium,
 +                                fontWeight = FontWeight.Bold,
 +                            )
 +                            Text(
-+                                text = "快速授予本地音乐目录权限并建立索引，适合车机离线曲库。",
++                                text = "蹇€熸巿浜堟湰鍦伴煶涔愮洰褰曟潈闄愬苟寤虹珛绱㈠紩锛岄€傚悎杞︽満绂荤嚎鏇插簱銆?,
 +                                style = MaterialTheme.typography.bodySmall,
 +                                color = MaterialTheme.colorScheme.onSurfaceVariant,
 +                            )
@@ -250,7 +243,7 @@ index ca2a2d3..01b8056 100644
 +                                Icon(Icons.Rounded.FolderOpen, null)
 +                            }
 +                            Spacer(Modifier.width(8.dp))
-+                            Text(if (isLocalFolderScanning) "扫描中" else "开始扫描")
++                            Text(if (isLocalFolderScanning) "鎵弿涓? else "寮€濮嬫壂鎻?)
 +                        }
 +                    }
 +                }
@@ -283,12 +276,12 @@ index ca2a2d3..01b8056 100644
 +    ) {
 +        Icon(
 +            imageVector = Icons.Rounded.PlayArrow,
-+            contentDescription = "播放全部",
++            contentDescription = "鎾斁鍏ㄩ儴",
 +            tint = scheme.onSecondary.copy(alpha = if (enabled) 1f else 0.5f),
 +            modifier = Modifier.size(30.dp),
 +        )
 +        Text(
-+            text = "播放全部（从头开始）",
++            text = "鎾斁鍏ㄩ儴锛堜粠澶村紑濮嬶級",
 +            style = MaterialTheme.typography.titleLarge,
 +            color = scheme.onSecondary,
 +            fontWeight = FontWeight.ExtraBold,
@@ -408,8 +401,8 @@ index 906e8b6..85fb662 100644
      val desktopWindowChrome = currentDesktopWindowChrome
      val defaultBackgroundColor = Color(0xFF232325)
 -    var isPureModeRequested by remember { mutableStateOf(false) }
-+    // v14：pure 模式改由 store（pureModeRequested）驱动，以支持"任意界面 20 秒空闲自动最大化"
-+    // （原本地 remember 状态在播放页未展开时不被组合，无法覆盖库界面场景）
++    // v14锛歱ure 妯″紡鏀圭敱 store锛坧ureModeRequested锛夐┍鍔紝浠ユ敮鎸?浠绘剰鐣岄潰 20 绉掔┖闂茶嚜鍔ㄦ渶澶у寲"
++    // 锛堝師鏈湴 remember 鐘舵€佸湪鎾斁椤垫湭灞曞紑鏃朵笉琚粍鍚堬紝鏃犳硶瑕嗙洊搴撶晫闈㈠満鏅級
 +    val isPureModeRequested = state.pureModeRequested
      val artworkLocator = snapshot.currentDisplayArtworkLocator
      val artworkCacheKey = trackArtworkCacheKey(track)
@@ -491,12 +484,12 @@ index 1e5fc1c..b5ff8a4 100644
 +                        verticalArrangement = Arrangement.spacedBy(6.dp),
 +                    ) {
 +                        Text(
-+                            text = "开机自动启动",
++                            text = "寮€鏈鸿嚜鍔ㄥ惎鍔?,
 +                            style = MaterialTheme.typography.titleMedium,
 +                            fontWeight = FontWeight.Bold,
 +                        )
 +                        Text(
-+                            text = "设备开机完成后自动打开本应用（车机推荐开启）。",
++                            text = "璁惧寮€鏈哄畬鎴愬悗鑷姩鎵撳紑鏈簲鐢紙杞︽満鎺ㄨ崘寮€鍚級銆?,
 +                            style = MaterialTheme.typography.bodySmall,
 +                            color = shellColors.secondaryText,
 +                        )
@@ -516,7 +509,7 @@ index 1e5fc1c..b5ff8a4 100644
              MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
                  Row(
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
-index 1aa0ba8..ed744f3 100644
+index 1aa0ba8..8060bfc 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 @@ -3,6 +3,7 @@ package top.iwesley.lyn.music.automotive
@@ -594,8 +587,7 @@ index 1aa0ba8..ed744f3 100644
          val pureModePresentation = resolveAutomotivePureModePresentation(isPureMode)
          val topControlButtonSize = resolveAutomotiveTopControlButtonSize(maxWidth)
          val topControlIconScale = topControlButtonSize / AutomotiveTopControlsSlotHeight
-+        // v5：移除播放区整块隐式点击（原"点按进入最大化"与控制按钮冲突易误触）
-+        // 最大化入口改为：歌词区顶带点按 + 顶栏显式按钮 + 双指点按
++        // v5锛氱Щ闄ゆ挱鏀惧尯鏁村潡闅愬紡鐐瑰嚮锛堝師"鐐规寜杩涘叆鏈€澶у寲"涓庢帶鍒舵寜閽啿绐佹槗璇Е锛?+        // 鏈€澶у寲鍏ュ彛鏀逛负锛氭瓕璇嶅尯椤跺甫鐐规寜 + 椤舵爮鏄惧紡鎸夐挳 + 鍙屾寚鐐规寜
          Column(
 -            modifier = Modifier.fillMaxSize(),
 +            modifier = Modifier
@@ -613,7 +605,7 @@ index 1aa0ba8..ed744f3 100644
                  if (pureModePresentation.showTopControls) {
                      Row(
 @@ -214,24 +234,61 @@ private fun AutomotivePlaybackPane(
-                             contentDescription = "收起播放页",
+                             contentDescription = "鏀惰捣鎾斁椤?,
                              onClick = { onPlayerIntent(PlayerIntent.ExpandedChanged(false)) },
                              buttonSize = topControlButtonSize,
 -                            iconSize = 34.dp * topControlIconScale,
@@ -622,10 +614,10 @@ index 1aa0ba8..ed744f3 100644
                          Row(
                              verticalAlignment = Alignment.CenterVertically,
                          ) {
-+                            // v11：放大搜索歌词按钮触控范围（车机点按更友好）
++                            // v11锛氭斁澶ф悳绱㈡瓕璇嶆寜閽Е鎺ц寖鍥达紙杞︽満鐐规寜鏇村弸濂斤級
                              AutomotiveRoundIconButton(
                                  icon = Icons.Rounded.Search,
-                                 contentDescription = "搜索歌词",
+                                 contentDescription = "鎼滅储姝岃瘝",
                                  onClick = { onPlayerIntent(PlayerIntent.OpenManualLyricsSearch) },
 -                                buttonSize = topControlButtonSize,
 -                                iconSize = 30.dp * topControlIconScale,
@@ -634,7 +626,7 @@ index 1aa0ba8..ed744f3 100644
                              )
                              AutomotiveRoundIconButton(
                                  icon = Icons.Rounded.Fullscreen,
-                                 contentDescription = "纯净模式",
+                                 contentDescription = "绾噣妯″紡",
                                  onClick = { onPureModeChanged(true) },
 -                                buttonSize = topControlButtonSize,
 -                                iconSize = 30.dp * topControlIconScale,
@@ -644,9 +636,8 @@ index 1aa0ba8..ed744f3 100644
 +                        }
 +                    }
 +                } else {
-+                    // v8：最大化页顶槽 = 居中时钟 + 右侧大号列表按钮(84dp)
-+                    // 顶槽空白区(时钟左右、除按钮外)可点 = 退出最大化（与歌词区整块切换互补，双指手势保留）
-+                    Box(
++                    // v8锛氭渶澶у寲椤甸《妲?= 灞呬腑鏃堕挓 + 鍙充晶澶у彿鍒楄〃鎸夐挳(84dp)
++                    // 椤舵Ы绌虹櫧鍖?鏃堕挓宸﹀彸銆侀櫎鎸夐挳澶?鍙偣 = 閫€鍑烘渶澶у寲锛堜笌姝岃瘝鍖烘暣鍧楀垏鎹簰琛ワ紝鍙屾寚鎵嬪娍淇濈暀锛?+                    Box(
 +                        modifier = Modifier
 +                            .fillMaxSize()
 +                            .clickable(
@@ -663,7 +654,7 @@ index 1aa0ba8..ed744f3 100644
 +                        ) {
 +                            AutomotiveRoundIconButton(
 +                                icon = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-+                                contentDescription = if (isFavorite) "取消喜欢" else "喜欢",
++                                contentDescription = if (isFavorite) "鍙栨秷鍠滄" else "鍠滄",
 +                                onClick = onToggleFavorite,
 +                                buttonSize = AutomotiveMaximizeBackButtonSize,
 +                                iconSize = AutomotiveMaximizeBackIconSize,
@@ -672,7 +663,7 @@ index 1aa0ba8..ed744f3 100644
 +                            )
 +                            AutomotiveRoundIconButton(
 +                                icon = Icons.AutoMirrored.Rounded.QueueMusic,
-+                                contentDescription = "播放队列",
++                                contentDescription = "鎾斁闃熷垪",
 +                                onClick = onOpenQueue,
 +                                buttonSize = AutomotiveMaximizeBackButtonSize,
 +                                iconSize = AutomotiveMaximizeBackIconSize,
@@ -688,8 +679,7 @@ index 1aa0ba8..ed744f3 100644
                      .weight(1f)
                      .fillMaxWidth(),
              )
-+            // 最大化模式：底部控制条不占位（高度清零），把空间让给封面和歌名栏下移
-             Box(
++            // 鏈€澶у寲妯″紡锛氬簳閮ㄦ帶鍒舵潯涓嶅崰浣嶏紙楂樺害娓呴浂锛夛紝鎶婄┖闂磋缁欏皝闈㈠拰姝屽悕鏍忎笅绉?             Box(
                  modifier = Modifier
                      .fillMaxWidth()
 -                    .height(controlsLayout.playButtonSize),
@@ -697,7 +687,7 @@ index 1aa0ba8..ed744f3 100644
                  contentAlignment = Alignment.Center,
              ) {
                  if (pureModePresentation.showPlaybackControls) {
-@@ -286,19 +345,35 @@ private fun AutomotiveTrackAndProgress(
+@@ -286,27 +345,48 @@ private fun AutomotiveTrackAndProgress(
      onlineNavigationSourceId: String?,
      onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -714,37 +704,39 @@ index 1aa0ba8..ed744f3 100644
              maxHeight = maxHeight,
          )
 +        val layout = if (isPureMode) {
-+            // v6：最大化页面封面再放大一档（高度占比 0.72→0.76），底部边距归零，
-+            // 把封面左右两侧与顶部的余量吃满（1280×720 下 394dp → 约 416dp）；
-+            // 歌名仍允许折两行，不会因封面变大而溢出
++            // v6锛氭渶澶у寲椤甸潰灏侀潰鍐嶆斁澶т竴妗ｏ紙楂樺害鍗犳瘮 0.72鈫?.76锛夛紝搴曢儴杈硅窛褰掗浂锛?+            // 鎶婂皝闈㈠乏鍙充袱渚т笌椤堕儴鐨勪綑閲忓悆婊★紙1280脳720 涓?394dp 鈫?绾?416dp锛夛紱
++            // 姝屽悕浠嶅厑璁告姌涓よ锛屼笉浼氬洜灏侀潰鍙樺ぇ鑰屾孩鍑?+            // v15锛氭敹绱у皝闈⑩啍姝屽悕銆佹瓕鍚嶁啍姝屾墜路涓撹緫 鐨勯棿璺濓紝娑堥櫎椤堕儴/搴曢儴澶氫綑绌虹櫧
 +            baseLayout.copy(
 +                artworkSize = minOf(maxWidth * 0.92f, maxHeight * 0.76f).coerceAtMost(560.dp),
 +                bottomPadding = 0.dp,
++                artworkTitleGap = baseLayout.artworkTitleGap * 0.5f,
++                metadataGap = baseLayout.metadataGap * 0.5f,
 +            )
 +        } else {
 +            baseLayout
 +        }
          val compactVertical = layout.compactVertical
-+        // 播放页字号基准必须用未缩放的 Material3 默认值（AutomotiveTypography）：
-+        // 全局 Typography 已被 LynMusicTheme 放大 1.5×，若再 scaleFont(carUiScale)
-+        // 会双重放大（1.5×1.5），导致播放页文字超大、歌名截断（v3 的 bug，v4 修复）
-         val titleStyle =
++        // 鎾斁椤靛瓧鍙峰熀鍑嗗繀椤荤敤鏈缉鏀剧殑 Material3 榛樿鍊硷紙AutomotiveTypography锛夛細
++        // 鍏ㄥ眬 Typography 宸茶 LynMusicTheme 鏀惧ぇ 1.5脳锛岃嫢鍐?scaleFont(carUiScale)
++        // 浼氬弻閲嶆斁澶э紙1.5脳1.5锛夛紝瀵艰嚧鎾斁椤垫枃瀛楄秴澶с€佹瓕鍚嶆埅鏂紙v3 鐨?bug锛寁4 淇锛?         val titleStyle =
 -            if (compactVertical) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineMedium
 +            (if (compactVertical) AutomotiveTypography.titleLarge else AutomotiveTypography.headlineMedium)
 +                .scaleFont(carUiScale)
          val inlineActionButtonSize = if (compactVertical) 44.dp else 52.dp
          val inlineActionIconSize = if (compactVertical) 24.dp else 28.dp
          Column(
-@@ -306,7 +381,7 @@ private fun AutomotiveTrackAndProgress(
+             modifier = Modifier
                  .fillMaxSize()
-                 .padding(bottom = layout.bottomPadding),
+-                .padding(bottom = layout.bottomPadding),
++                .padding(bottom = layout.bottomPadding)
++                // v15锛氭渶澶у寲椤垫暣鍧椾笂鎻愶紝鍚冩帀灏侀潰涓庨《閮ㄦ椂閽熶箣闂寸殑浣欓噺锛屽悓鏃惰姝屽悕/姝屾墜涓よ鏇撮潬涓?+                .offset(y = if (isPureMode) (-18).dp else 0.dp),
              horizontalAlignment = Alignment.CenterHorizontally,
 -            verticalArrangement = Arrangement.Bottom,
 +            verticalArrangement = if (isPureMode) Arrangement.Center else Arrangement.Bottom,
          ) {
              AutomotiveSwipeableArtwork(
                  snapshot = snapshot,
-@@ -332,36 +407,45 @@ private fun AutomotiveTrackAndProgress(
+@@ -332,36 +412,45 @@ private fun AutomotiveTrackAndProgress(
                          style = titleStyle,
                          fontWeight = FontWeight.ExtraBold,
                          color = Color.White.copy(alpha = 0.96f),
@@ -755,7 +747,7 @@ index 1aa0ba8..ed744f3 100644
 -                    Spacer(Modifier.width(if (compactVertical) 2.dp else 4.dp))
 -                    AutomotiveRoundIconButton(
 -                        icon = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
--                        contentDescription = if (isFavorite) "取消喜欢" else "喜欢",
+-                        contentDescription = if (isFavorite) "鍙栨秷鍠滄" else "鍠滄",
 -                        onClick = onToggleFavorite,
 -                        buttonSize = inlineActionButtonSize,
 -                        iconSize = inlineActionIconSize,
@@ -771,7 +763,7 @@ index 1aa0ba8..ed744f3 100644
 +                        Spacer(Modifier.width(if (compactVertical) 2.dp else 4.dp))
 +                        AutomotiveRoundIconButton(
 +                            icon = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-+                            contentDescription = if (isFavorite) "取消喜欢" else "喜欢",
++                            contentDescription = if (isFavorite) "鍙栨秷鍠滄" else "鍠滄",
 +                            onClick = onToggleFavorite,
 +                            buttonSize = inlineActionButtonSize,
 +                            iconSize = inlineActionIconSize,
@@ -810,7 +802,7 @@ index 1aa0ba8..ed744f3 100644
          }
      }
  }
-@@ -387,16 +471,12 @@ private fun AutomotiveSwipeableArtwork(
+@@ -387,16 +476,12 @@ private fun AutomotiveSwipeableArtwork(
          animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
          label = "automotive-artwork-swipe-offset",
      )
@@ -824,7 +816,7 @@ index 1aa0ba8..ed744f3 100644
 -        }
 -    } else {
 -        Modifier
-+    // v5：封面点按 = 播放/暂停（两种模式统一），不再依赖 isPureMode
++    // v5锛氬皝闈㈢偣鎸?= 鎾斁/鏆傚仠锛堜袱绉嶆ā寮忕粺涓€锛夛紝涓嶅啀渚濊禆 isPureMode
 +    val artworkTapModifier = Modifier.clickable(
 +        interactionSource = remember { MutableInteractionSource() },
 +        indication = null,
@@ -833,7 +825,7 @@ index 1aa0ba8..ed744f3 100644
      }
      Box(
          modifier = modifier
-@@ -475,6 +555,7 @@ private fun AutomotiveMetadataNavigationRow(
+@@ -475,6 +560,7 @@ private fun AutomotiveMetadataNavigationRow(
      onlineNavigationSourceId: String?,
      onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
      modifier: Modifier = Modifier,
@@ -841,31 +833,60 @@ index 1aa0ba8..ed744f3 100644
  ) {
      val navigationTargets = remember(
          snapshot.currentDisplayAlbumTitle,
-@@ -515,9 +596,9 @@ private fun AutomotiveMetadataNavigationRow(
-             style = style,
-             color = color,
-             onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
+@@ -504,62 +590,33 @@ private fun AutomotiveMetadataNavigationRow(
+         primary = snapshot.currentDisplayAlbumTitle,
+         fallback = track.albumTitle,
+     )
+-    Row(
+-        modifier = modifier.fillMaxWidth(),
+-        horizontalArrangement = Arrangement.Center,
+-        verticalAlignment = Alignment.CenterVertically,
+-    ) {
+-        AutomotiveMetadataText(
+-            text = artistLabel,
+-            target = navigationTargets.artistTarget,
+-            style = style,
+-            color = color,
+-            onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
 -            modifier = Modifier.weight(1f, fill = false),
-+            modifier = Modifier.weight(1f, fill = true),
-         )
+-        )
 -        if (albumLabel != null) {
-+        if (showAlbum && albumLabel != null) {
-             Text(
-                 text = " · ",
-                 style = style,
-@@ -531,7 +612,7 @@ private fun AutomotiveMetadataNavigationRow(
-                 style = style,
-                 color = color,
-                 onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
+-            Text(
+-                text = " 路 ",
+-                style = style,
+-                fontWeight = FontWeight.Medium,
+-                color = color,
+-                maxLines = 1,
+-            )
+-            AutomotiveMetadataText(
+-                text = albumLabel,
+-                target = navigationTargets.albumTarget,
+-                style = style,
+-                color = color,
+-                onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
 -                modifier = Modifier.weight(1f, fill = false),
-+                modifier = Modifier.weight(1f, fill = true),
-             )
+-            )
++    // v15锛氭瓕鎵嬩笌涓撹緫鍚堝苟涓衡€滄瓕鎵?路 涓撹緫鈥濅竴琛屻€佸崰婊℃暣瀹姐€佹暣琛岃窇椹伅婊氬姩锛堜笉鍐嶅乏鍙冲悇鍗婂鍒嗘牸锛?+    val combinedText = buildString {
++        append(artistLabel)
++        if (showAlbum && albumLabel != null) {
++            append(" 路 ")
++            append(albumLabel)
          }
      }
-@@ -548,18 +629,21 @@ private fun AutomotiveMetadataText(
- ) {
+-}
+-
+-@Composable
+-private fun AutomotiveMetadataText(
+-    text: String,
+-    target: LibraryNavigationTarget?,
+-    style: TextStyle,
+-    color: Color,
+-    onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
+-    modifier: Modifier = Modifier,
+-) {
++    val navTarget = navigationTargets.artistTarget ?: navigationTargets.albumTarget
      Text(
-         text = text,
+-        text = text,
 -        modifier = modifier.then(
 -            if (target != null) {
 -                Modifier.clickable { onOpenLibraryNavigationTarget(target) }
@@ -873,10 +894,12 @@ index 1aa0ba8..ed744f3 100644
 -                Modifier
 -            },
 -        ),
++        text = combinedText,
 +        modifier = modifier
++            .fillMaxWidth()
 +            .then(
-+                if (target != null) {
-+                    Modifier.clickable { onOpenLibraryNavigationTarget(target) }
++                if (navTarget != null) {
++                    Modifier.clickable { onOpenLibraryNavigationTarget(navTarget) }
 +                } else {
 +                    Modifier
 +                },
@@ -892,7 +915,7 @@ index 1aa0ba8..ed744f3 100644
      )
  }
  
-@@ -567,6 +651,7 @@ private fun AutomotiveMetadataText(
+@@ -567,6 +624,7 @@ private fun AutomotiveMetadataText(
  private fun AutomotivePlaybackProgress(
      snapshot: PlaybackSnapshot,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -900,7 +923,7 @@ index 1aa0ba8..ed744f3 100644
      modifier: Modifier = Modifier,
  ) {
      var dragFraction by remember(snapshot.currentTrack?.id, snapshot.durationMs) {
-@@ -615,18 +700,107 @@ private fun AutomotivePlaybackProgress(
+@@ -615,18 +673,107 @@ private fun AutomotivePlaybackProgress(
          ) {
              Text(
                  text = formatDuration(snapshot.positionMs),
@@ -918,8 +941,7 @@ index 1aa0ba8..ed744f3 100644
      }
  }
  
-+// v7：最大化页歌词区底部进度条——拉满歌词区宽度，且可拖动跳转（"拉歌"）
-+// 复用播放页的透明 Slider 方案；拖动条是独立触控目标，不会触发整屏"点击切换"
++// v7锛氭渶澶у寲椤垫瓕璇嶅尯搴曢儴杩涘害鏉♀€斺€旀媺婊℃瓕璇嶅尯瀹藉害锛屼笖鍙嫋鍔ㄨ烦杞紙"鎷夋瓕"锛?+// 澶嶇敤鎾斁椤电殑閫忔槑 Slider 鏂规锛涙嫋鍔ㄦ潯鏄嫭绔嬭Е鎺х洰鏍囷紝涓嶄細瑙﹀彂鏁村睆"鐐瑰嚮鍒囨崲"
 +@Composable
 +private fun AutomotivePureModeProgressRow(
 +    snapshot: PlaybackSnapshot,
@@ -936,18 +958,18 @@ index 1aa0ba8..ed744f3 100644
 +        verticalAlignment = Alignment.CenterVertically,
 +        horizontalArrangement = Arrangement.spacedBy(10.dp),
 +    ) {
-+        // v11：进度条左侧两个控制钮——a.播放模式(顺序/随机/单曲) b.搜索歌词
-+        // 最大化模式底部控制条被收起，故把这两个常用钮挪到进度条左侧
++        // v11锛氳繘搴︽潯宸︿晶涓や釜鎺у埗閽€斺€攁.鎾斁妯″紡(椤哄簭/闅忔満/鍗曟洸) b.鎼滅储姝岃瘝
++        // 鏈€澶у寲妯″紡搴曢儴鎺у埗鏉¤鏀惰捣锛屾晠鎶婅繖涓や釜甯哥敤閽尓鍒拌繘搴︽潯宸︿晶
 +        AutomotiveRoundIconButton(
 +            icon = playbackModeIcon(snapshot.mode),
-+            contentDescription = "切换播放模式",
++            contentDescription = "鍒囨崲鎾斁妯″紡",
 +            onClick = { onPlayerIntent(PlayerIntent.CycleMode) },
 +            buttonSize = 64.dp,
 +            iconSize = 34.dp,
 +        )
 +        AutomotiveRoundIconButton(
 +            icon = Icons.Rounded.Search,
-+            contentDescription = "搜索歌词",
++            contentDescription = "鎼滅储姝岃瘝",
 +            onClick = { onPlayerIntent(PlayerIntent.OpenManualLyricsSearch) },
 +            buttonSize = 64.dp,
 +            iconSize = 34.dp,
@@ -1010,7 +1032,7 @@ index 1aa0ba8..ed744f3 100644
  @Composable
  private fun AutomotiveRoundedSliderTrack(
      progressFraction: Float,
-@@ -734,19 +908,45 @@ private fun AutomotiveLyricsPane(
+@@ -734,19 +881,45 @@ private fun AutomotiveLyricsPane(
      state: PlayerState,
      track: Track,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -1019,9 +1041,7 @@ index 1aa0ba8..ed744f3 100644
 +    onOpenQueue: () -> Unit,
      modifier: Modifier = Modifier,
  ) {
-+    // v7：移除上/下两条 64dp 触发带及其提示图标（歌词区 +128dp ≈ +25%）
-+    // 整块歌词区可点 = 播放↔最大化切换（普通页进 / 最大化页退），双指手势仍保留
-+    // 歌单按钮取消：播放模式左下控制条的 QueueMusic 已可查看
++    // v7锛氱Щ闄や笂/涓嬩袱鏉?64dp 瑙﹀彂甯﹀強鍏舵彁绀哄浘鏍囷紙姝岃瘝鍖?+128dp 鈮?+25%锛?+    // 鏁村潡姝岃瘝鍖哄彲鐐?= 鎾斁鈫旀渶澶у寲鍒囨崲锛堟櫘閫氶〉杩?/ 鏈€澶у寲椤甸€€锛夛紝鍙屾寚鎵嬪娍浠嶄繚鐣?+    // 姝屽崟鎸夐挳鍙栨秷锛氭挱鏀炬ā寮忓乏涓嬫帶鍒舵潯鐨?QueueMusic 宸插彲鏌ョ湅
      Box(
          modifier = modifier
 -            .padding(horizontal = 18.dp, vertical = 16.dp),
@@ -1039,8 +1059,7 @@ index 1aa0ba8..ed744f3 100644
 -            modifier = Modifier.fillMaxSize(),
 -        )
 +        Column(modifier = Modifier.fillMaxSize()) {
-+            // 中段：歌词本体（滚动浏览/自动居中行为完全不变；歌词行本身无点击跳转，整块可点安全）
-+            PlayerLyricsPane(
++            // 涓锛氭瓕璇嶆湰浣擄紙婊氬姩娴忚/鑷姩灞呬腑琛屼负瀹屽叏涓嶅彉锛涙瓕璇嶈鏈韩鏃犵偣鍑昏烦杞紝鏁村潡鍙偣瀹夊叏锛?+            PlayerLyricsPane(
 +                state = state,
 +                track = track,
 +                onPlayerIntent = onPlayerIntent,
@@ -1050,8 +1069,7 @@ index 1aa0ba8..ed744f3 100644
 +                    .weight(1f)
 +                    .fillMaxWidth(),
 +            )
-+            // v7：最大化页专属——歌词区底部、拉满宽度的可拖动进度条 + 已播/总时长
-+            // 仅最大化页显示（普通页进度条仍在左侧播放区）；拖动条为独立触控目标，不触发整屏切换
++            // v7锛氭渶澶у寲椤典笓灞炩€斺€旀瓕璇嶅尯搴曢儴銆佹媺婊″搴︾殑鍙嫋鍔ㄨ繘搴︽潯 + 宸叉挱/鎬绘椂闀?+            // 浠呮渶澶у寲椤垫樉绀猴紙鏅€氶〉杩涘害鏉′粛鍦ㄥ乏渚ф挱鏀惧尯锛夛紱鎷栧姩鏉′负鐙珛瑙︽帶鐩爣锛屼笉瑙﹀彂鏁村睆鍒囨崲
 +            if (isPureMode) {
 +                Spacer(Modifier.height(AutomotiveLyricsProgressTopGap))
 +                AutomotivePureModeProgressRow(
@@ -1064,19 +1082,18 @@ index 1aa0ba8..ed744f3 100644
      }
  }
  
-@@ -792,9 +992,8 @@ internal fun resolveAutomotiveTopControlButtonSize(maxWidth: Dp): Dp =
+@@ -792,9 +965,8 @@ internal fun resolveAutomotiveTopControlButtonSize(maxWidth: Dp): Dp =
      minOf(AutomotiveTopControlsSlotHeight, maxWidth / 3f)
          .coerceAtLeast(AutomotiveControlMinimumTouchSize)
  
 -internal fun resolveAutomotiveArtworkTapIntent(
 -    isPureMode: Boolean,
 -): PlayerIntent? = if (isPureMode) PlayerIntent.TogglePlayPause else null
-+// v5：封面点按统一为播放/暂停（普通页+最大化页行为一致；横滑切歌手势不受影响）
-+internal fun resolveAutomotiveArtworkTapIntent(): PlayerIntent = PlayerIntent.TogglePlayPause
++// v5锛氬皝闈㈢偣鎸夌粺涓€涓烘挱鏀?鏆傚仠锛堟櫘閫氶〉+鏈€澶у寲椤佃涓轰竴鑷达紱妯粦鍒囨瓕鎵嬪娍涓嶅彈褰卞搷锛?+internal fun resolveAutomotiveArtworkTapIntent(): PlayerIntent = PlayerIntent.TogglePlayPause
  
  internal fun resolveAutomotivePureModeAfterTwoFingerTap(
      isPureMode: Boolean,
-@@ -1190,11 +1389,23 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
+@@ -1190,11 +1362,23 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
  private val AutomotiveFiveControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 5
  private val AutomotivePrimaryControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 3
  private val AutomotiveTopControlsSlotHeight = 64.dp
@@ -1089,18 +1106,15 @@ index 1aa0ba8..ed744f3 100644
  private const val AutomotivePlaybackPaneWeight = 0.46f
  private const val AutomotiveLyricsPaneWeight = 0.54f
  
-+// v7：最大化页歌词区底部进度条与歌词区顶边的间距
++// v7锛氭渶澶у寲椤垫瓕璇嶅尯搴曢儴杩涘害鏉′笌姝岃瘝鍖洪《杈圭殑闂磋窛
 +private val AutomotiveLyricsProgressTopGap = 10.dp
 +
-+// 播放页专用未缩放字号基准：Material3 出厂默认值。
-+// 全局 Typography 已被 LynMusicTheme scaledTypography(1.5×) 放大（作用于设置/曲库等页面），
-+// 播放页文字在此基础上再 scaleFont(carUiScale) 会双重放大，故必须引用此基准（v4 修复）
-+private val AutomotiveTypography = Typography()
++// 鎾斁椤典笓鐢ㄦ湭缂╂斁瀛楀彿鍩哄噯锛歁aterial3 鍑哄巶榛樿鍊笺€?+// 鍏ㄥ眬 Typography 宸茶 LynMusicTheme scaledTypography(1.5脳) 鏀惧ぇ锛堜綔鐢ㄤ簬璁剧疆/鏇插簱绛夐〉闈級锛?+// 鎾斁椤垫枃瀛楀湪姝ゅ熀纭€涓婂啀 scaleFont(carUiScale) 浼氬弻閲嶆斁澶э紝鏁呭繀椤诲紩鐢ㄦ鍩哄噯锛坴4 淇锛?+private val AutomotiveTypography = Typography()
 +
  internal data class AutomotiveTrackAndProgressLayout(
      val compactVertical: Boolean,
      val artworkSize: Dp,
-@@ -1324,3 +1535,38 @@ private fun automotiveMetadataValue(
+@@ -1324,3 +1508,38 @@ private fun automotiveMetadataValue(
      return primary?.trim()?.takeIf { it.isNotBlank() }
          ?: fallback?.trim()?.takeIf { it.isNotBlank() }
  }
@@ -1128,8 +1142,7 @@ index 1aa0ba8..ed744f3 100644
 +    ) {
 +        Text(
 +            text = timeStr.value,
-+            // 显式 TextStyle（不依赖 MaterialTheme.typography，避免被全局放大波及）
-+            // lineHeight 必须随 fontSize 放大，否则字形被垂直裁切（v3 时钟显示不全的原因）
++            // 鏄惧紡 TextStyle锛堜笉渚濊禆 MaterialTheme.typography锛岄伩鍏嶈鍏ㄥ眬鏀惧ぇ娉㈠強锛?+            // lineHeight 蹇呴』闅?fontSize 鏀惧ぇ锛屽惁鍒欏瓧褰㈣鍨傜洿瑁佸垏锛坴3 鏃堕挓鏄剧ず涓嶅叏鐨勫師鍥狅級
 +            style = TextStyle(
 +                fontSize = (60f * scale).sp,
 +                lineHeight = (72f * scale).sp,
@@ -1154,10 +1167,8 @@ index 7e3cc1d..6d49a4d 100644
  import top.iwesley.lyn.music.core.model.CLASSIC_APP_THEME_TOKENS
  import top.iwesley.lyn.music.core.model.deriveAppThemePalette
  
-+// 车机版：全局 Typography 缩放（影响设置/曲库/我的等非播放页面）
-+// 字号 ×1.5，行高 ×1.7（v4：行高比字号多放大一点，增加列表行间距/呼吸感）
-+// 播放页文字走 AutomotivePlayerUi 内的 AutomotiveTypography 基准 + scaleFont，
-+// 不受此处缩放影响（v3 曾因双重放大出 bug，v4 已修复）
++// 杞︽満鐗堬細鍏ㄥ眬 Typography 缂╂斁锛堝奖鍝嶈缃?鏇插簱/鎴戠殑绛夐潪鎾斁椤甸潰锛?+// 瀛楀彿 脳1.5锛岃楂?脳1.7锛坴4锛氳楂樻瘮瀛楀彿澶氭斁澶т竴鐐癸紝澧炲姞鍒楄〃琛岄棿璺?鍛煎惛鎰燂級
++// 鎾斁椤垫枃瀛楄蛋 AutomotivePlayerUi 鍐呯殑 AutomotiveTypography 鍩哄噯 + scaleFont锛?+// 涓嶅彈姝ゅ缂╂斁褰卞搷锛坴3 鏇惧洜鍙岄噸鏀惧ぇ鍑?bug锛寁4 宸蹭慨澶嶏級
 +private const val CarTypographyScale = 1.5f
 +private const val CarTypographyLineHeightScale = 1.7f
 +
@@ -1209,8 +1220,7 @@ index 0000000..ecf3531
 @@ -0,0 +1,5 @@
 +package top.iwesley.lyn.music
 +
-+// 非 Android 平台（桌面 JVM）无需开机自启，提供空实现以满足 expect/actual 多平台编译要求。
-+actual fun readAutoStartOnBoot(context: Any): Boolean = false
++// 闈?Android 骞冲彴锛堟闈?JVM锛夋棤闇€寮€鏈鸿嚜鍚紝鎻愪緵绌哄疄鐜颁互婊¤冻 expect/actual 澶氬钩鍙扮紪璇戣姹傘€?+actual fun readAutoStartOnBoot(context: Any): Boolean = false
 +actual fun writeAutoStartOnBoot(context: Any, enabled: Boolean) = Unit
 diff --git a/player/app/src/nativeMain/kotlin/top/iwesley/lyn/music/AutoStartBootPrefs.native.kt b/player/app/src/nativeMain/kotlin/top/iwesley/lyn/music/AutoStartBootPrefs.native.kt
 new file mode 100644
@@ -1220,8 +1230,7 @@ index 0000000..6935c00
 @@ -0,0 +1,5 @@
 +package top.iwesley.lyn.music
 +
-+// 非 Android 平台（iOS / macOS）无需开机自启，提供空实现以满足 expect/actual 多平台编译要求。
-+actual fun readAutoStartOnBoot(context: Any): Boolean = false
++// 闈?Android 骞冲彴锛坕OS / macOS锛夋棤闇€寮€鏈鸿嚜鍚紝鎻愪緵绌哄疄鐜颁互婊¤冻 expect/actual 澶氬钩鍙扮紪璇戣姹傘€?+actual fun readAutoStartOnBoot(context: Any): Boolean = false
 +actual fun writeAutoStartOnBoot(context: Any, enabled: Boolean) = Unit
 diff --git a/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/feature/player/PlayerStore.kt b/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/feature/player/PlayerStore.kt
 index 0d86686..e426747 100644
@@ -1231,8 +1240,7 @@ index 0d86686..e426747 100644
  data class PlayerState(
      val snapshot: PlaybackSnapshot = PlaybackSnapshot(),
      val isExpanded: Boolean = false,
-+    // v14：纯净/最大化模式请求（原为 PlayerUi 本地状态；提到 store 以支持"任意界面 20 秒空闲自动最大化"）
-+    val pureModeRequested: Boolean = false,
++    // v14锛氱函鍑€/鏈€澶у寲妯″紡璇锋眰锛堝師涓?PlayerUi 鏈湴鐘舵€侊紱鎻愬埌 store 浠ユ敮鎸?浠绘剰鐣岄潰 20 绉掔┖闂茶嚜鍔ㄦ渶澶у寲"锛?+    val pureModeRequested: Boolean = false,
      val isQueueVisible: Boolean = false,
      val isLyricsLoading: Boolean = false,
      val hasLyricsLookupCompleted: Boolean = false,
@@ -1245,7 +1253,7 @@ index 0d86686..e426747 100644
      data object OpenManualLyricsSearch : PlayerIntent
      data object DismissManualLyricsSearch : PlayerIntent
 @@ -347,6 +350,7 @@ class PlayerStore(
-                 it.copy(message = "通知权限未开启，后台投屏通知可能不显示。")
+                 it.copy(message = "閫氱煡鏉冮檺鏈紑鍚紝鍚庡彴鎶曞睆閫氱煡鍙兘涓嶆樉绀恒€?)
              }
              is PlayerIntent.ExpandedChanged -> updateState { it.copy(isExpanded = intent.value) }
 +            is PlayerIntent.EnterPureMode -> updateState { it.copy(pureModeRequested = intent.value) }

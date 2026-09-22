@@ -1,3 +1,26 @@
+diff --git a/android/runtime/src/main/kotlin/top/iwesley/lyn/music/platform/AndroidServiceBackedPlaybackRepository.kt b/android/runtime/src/main/kotlin/top/iwesley/lyn/music/platform/AndroidServiceBackedPlaybackRepository.kt
+index 7fdf523..3dd3732 100644
+--- a/android/runtime/src/main/kotlin/top/iwesley/lyn/music/platform/AndroidServiceBackedPlaybackRepository.kt
++++ b/android/runtime/src/main/kotlin/top/iwesley/lyn/music/platform/AndroidServiceBackedPlaybackRepository.kt
+@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.collectLatest
+ import kotlinx.coroutines.flow.filterNotNull
+ import kotlinx.coroutines.flow.first
+ import kotlinx.coroutines.launch
++import top.iwesley.lyn.music.core.model.PlaybackMode
+ import top.iwesley.lyn.music.core.model.PlaybackSnapshot
+ import top.iwesley.lyn.music.core.model.Track
+ import top.iwesley.lyn.music.data.repository.PlaybackHydrationResult
+@@ -124,6 +125,10 @@ internal class AndroidServiceBackedPlaybackRepository(
+         repository().cycleMode()
+     }
+ 
++    override suspend fun setMode(mode: PlaybackMode) {
++        repository().setMode(mode)
++    }
++
+     override suspend fun overrideCurrentTrackArtwork(artworkLocator: String?) {
+         repository().overrideCurrentTrackArtwork(artworkLocator)
+     }
 diff --git a/automotiveApp/src/main/AndroidManifest.xml b/automotiveApp/src/main/AndroidManifest.xml
 index edeb9eb..a4f5f5f 100644
 --- a/automotiveApp/src/main/AndroidManifest.xml
@@ -665,18 +688,15 @@ index 0000000..1bfc08e
 +expect fun readAutoStartOnBoot(context: Any): Boolean
 +expect fun writeAutoStartOnBoot(context: Any, enabled: Boolean)
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
-index ca2a2d3..4203d7c 100644
+index ca2a2d3..ca18bab 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
-@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.offset
- import androidx.compose.foundation.layout.padding
- import androidx.compose.foundation.layout.size
- import androidx.compose.foundation.layout.width
-+import androidx.compose.foundation.layout.weight
- import androidx.compose.foundation.layout.widthIn
- import androidx.compose.foundation.lazy.LazyColumn
- import androidx.compose.foundation.lazy.LazyListState
-@@ -94,6 +95,7 @@ import androidx.compose.ui.window.Dialog
+@@ -90,10 +90,12 @@ import androidx.compose.ui.text.input.TextFieldValue
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.IntSize
+ import androidx.compose.ui.unit.dp
++import androidx.compose.ui.unit.sp
+ import androidx.compose.ui.window.Dialog
  import androidx.compose.ui.window.DialogProperties
  import kotlinx.coroutines.delay
  import kotlinx.coroutines.launch

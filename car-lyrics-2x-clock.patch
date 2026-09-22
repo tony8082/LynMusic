@@ -516,7 +516,7 @@ index 1e5fc1c..b5ff8a4 100644
              MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
                  Row(
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
-index 1aa0ba8..8060bfc 100644
+index 1aa0ba8..50bba30 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 @@ -3,6 +3,7 @@ package top.iwesley.lyn.music.automotive
@@ -557,7 +557,7 @@ index 1aa0ba8..8060bfc 100644
  import kotlin.math.roundToInt
  import kotlin.math.roundToLong
  import top.iwesley.lyn.music.ArtworkDecodeSize
-@@ -122,9 +129,13 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
+@@ -122,9 +129,14 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
          Row(
              modifier = Modifier
                  .fillMaxSize()
@@ -568,11 +568,12 @@ index 1aa0ba8..8060bfc 100644
                  .padding(
                      horizontal = frameLayout.horizontalPadding,
 -                    vertical = frameLayout.verticalPadding,
-+                    vertical = if (isPureMode) 16.dp else frameLayout.verticalPadding,
++                    // v16.1：最大化页上下留白 8 → 6dp（封面已锁 216，腾出的空间转为顶/底呼吸余量）
++                    vertical = if (isPureMode) 6.dp else frameLayout.verticalPadding,
                  ),
              horizontalArrangement = Arrangement.spacedBy(frameLayout.paneGap),
              verticalAlignment = Alignment.CenterVertically,
-@@ -154,6 +165,9 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
+@@ -154,6 +166,9 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
                  state = state,
                  track = track,
                  onPlayerIntent = onPlayerIntent,
@@ -582,7 +583,7 @@ index 1aa0ba8..8060bfc 100644
                  modifier = Modifier
                      .weight(AutomotiveLyricsPaneWeight)
                      .fillMaxHeight(),
-@@ -180,6 +194,7 @@ private fun AutomotivePlaybackPane(
+@@ -180,6 +195,7 @@ private fun AutomotivePlaybackPane(
      controlsReferenceMaxWidth: Dp,
      controlsReferenceMaxHeight: Dp,
      onPureModeChanged: (Boolean) -> Unit,
@@ -590,7 +591,7 @@ index 1aa0ba8..8060bfc 100644
      modifier: Modifier = Modifier,
  ) {
      val snapshot = state.snapshot
-@@ -194,14 +209,19 @@ private fun AutomotivePlaybackPane(
+@@ -194,14 +210,19 @@ private fun AutomotivePlaybackPane(
          val pureModePresentation = resolveAutomotivePureModePresentation(isPureMode)
          val topControlButtonSize = resolveAutomotiveTopControlButtonSize(maxWidth)
          val topControlIconScale = topControlButtonSize / AutomotiveTopControlsSlotHeight
@@ -612,7 +613,7 @@ index 1aa0ba8..8060bfc 100644
              ) {
                  if (pureModePresentation.showTopControls) {
                      Row(
-@@ -214,24 +234,61 @@ private fun AutomotivePlaybackPane(
+@@ -214,24 +235,61 @@ private fun AutomotivePlaybackPane(
                              contentDescription = "收起播放页",
                              onClick = { onPlayerIntent(PlayerIntent.ExpandedChanged(false)) },
                              buttonSize = topControlButtonSize,
@@ -679,7 +680,7 @@ index 1aa0ba8..8060bfc 100644
                              )
                          }
                      }
-@@ -249,14 +306,16 @@ private fun AutomotivePlaybackPane(
+@@ -249,14 +307,16 @@ private fun AutomotivePlaybackPane(
                  onlineNavigationSourceId = onlineNavigationSourceId,
                  onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
                  onPlayerIntent = onPlayerIntent,
@@ -697,7 +698,7 @@ index 1aa0ba8..8060bfc 100644
                  contentAlignment = Alignment.Center,
              ) {
                  if (pureModePresentation.showPlaybackControls) {
-@@ -286,27 +345,48 @@ private fun AutomotiveTrackAndProgress(
+@@ -286,19 +346,54 @@ private fun AutomotiveTrackAndProgress(
      onlineNavigationSourceId: String?,
      onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -713,21 +714,38 @@ index 1aa0ba8..8060bfc 100644
              maxWidth = maxWidth,
              maxHeight = maxHeight,
          )
+-        val compactVertical = layout.compactVertical
++        val compactVertical = baseLayout.compactVertical
++        // v16：最大化页封面尺寸不再按"可用高度 × 0.76"硬取比例 —— 那个比例只考虑封面自己，
++        // 会把下面的「歌名 + 歌手·专辑」两行挤到框外；整块又是底对齐，于是末行正好压在屏幕下沿，
++        // 在车机上看到的就是"歌手·专辑被切掉"（V13 实拍即此现象，代码级复算超框约 38dp）。
++        // 改为按实际要占的两行文字高度反推封面：
++        //   封面 = 可用高度 − 文字区(歌名行高 + 间距 + 底行高) − 封面↔歌名间距 − 底部安全边距
++        // 这样任何车机分辨率/全局字号下内容都放得下，末行永远离屏幕下沿留有安全边距。
++        val density = LocalDensity.current
++        val pureTitleLineHeight = (
++            if (compactVertical) AutomotiveTypography.titleLarge else AutomotiveTypography.headlineMedium
++            ).lineHeight * carUiScale
++        val pureMetadataLineHeight = (
++            if (compactVertical) AutomotiveTypography.bodyLarge else AutomotiveTypography.titleMedium
++            ).lineHeight * carUiScale
++        val pureTextBlockHeight = with(density) {
++            pureTitleLineHeight.toDp() + pureMetadataLineHeight.toDp()
++        } + AutomotivePureModeMetadataGap
 +        val layout = if (isPureMode) {
-+            // v6：最大化页面封面再放大一档（高度占比 0.72→0.76），底部边距归零，
-+            // 把封面左右两侧与顶部的余量吃满（1280×720 下 394dp → 约 416dp）；
-+            // 歌名仍允许折两行，不会因封面变大而溢出
-+            // v15：收紧封面↔歌名、歌名↔歌手·专辑 的间距，消除顶部/底部多余空白
 +            baseLayout.copy(
-+                artworkSize = minOf(maxWidth * 0.92f, maxHeight * 0.76f).coerceAtMost(560.dp),
-+                bottomPadding = 0.dp,
-+                artworkTitleGap = baseLayout.artworkTitleGap * 0.5f,
-+                metadataGap = baseLayout.metadataGap * 0.5f,
++                artworkSize = minOf(
++                    maxWidth * 0.92f,
++                    maxHeight - pureTextBlockHeight -
++                        AutomotivePureModeArtworkTitleGap - AutomotivePureModeBottomSafeGap,
++                ).coerceIn(AutomotivePureModeArtworkMinSize, AutomotivePureModeArtworkMaxSize),
++                bottomPadding = AutomotivePureModeBottomSafeGap,
++                artworkTitleGap = AutomotivePureModeArtworkTitleGap,
++                metadataGap = AutomotivePureModeMetadataGap,
 +            )
 +        } else {
 +            baseLayout
 +        }
-         val compactVertical = layout.compactVertical
 +        // 播放页字号基准必须用未缩放的 Material3 默认值（AutomotiveTypography）：
 +        // 全局 Typography 已被 LynMusicTheme 放大 1.5×，若再 scaleFont(carUiScale)
 +        // 会双重放大（1.5×1.5），导致播放页文字超大、歌名截断（v3 的 bug，v4 修复）
@@ -738,19 +756,17 @@ index 1aa0ba8..8060bfc 100644
          val inlineActionButtonSize = if (compactVertical) 44.dp else 52.dp
          val inlineActionIconSize = if (compactVertical) 24.dp else 28.dp
          Column(
-             modifier = Modifier
+@@ -306,6 +401,9 @@ private fun AutomotiveTrackAndProgress(
                  .fillMaxSize()
--                .padding(bottom = layout.bottomPadding),
-+                .padding(bottom = layout.bottomPadding)
-+                // v15：最大化页整块上提，吃掉封面与顶部时钟之间的余量，同时让歌名/歌手两行更靠上
-+                .offset(y = if (isPureMode) (-18).dp else 0.dp),
+                 .padding(bottom = layout.bottomPadding),
              horizontalAlignment = Alignment.CenterHorizontally,
--            verticalArrangement = Arrangement.Bottom,
-+            verticalArrangement = if (isPureMode) Arrangement.Center else Arrangement.Bottom,
++            // v16：两种模式统一底对齐。最大化页不再需要排版硬偏移 ——
++            // 封面已按剩余高度算好、内容不会溢出，靠 bottomPadding(20dp) 保证底行不贴屏幕下沿；
++            // 同时删掉 v15 的 -18dp 硬上移（那是给"超框"打的补丁，现已由公式根治）
+             verticalArrangement = Arrangement.Bottom,
          ) {
              AutomotiveSwipeableArtwork(
-                 snapshot = snapshot,
-@@ -332,36 +412,45 @@ private fun AutomotiveTrackAndProgress(
+@@ -332,36 +430,45 @@ private fun AutomotiveTrackAndProgress(
                          style = titleStyle,
                          fontWeight = FontWeight.ExtraBold,
                          color = Color.White.copy(alpha = 0.96f),
@@ -816,7 +832,7 @@ index 1aa0ba8..8060bfc 100644
          }
      }
  }
-@@ -387,16 +476,12 @@ private fun AutomotiveSwipeableArtwork(
+@@ -387,16 +494,12 @@ private fun AutomotiveSwipeableArtwork(
          animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
          label = "automotive-artwork-swipe-offset",
      )
@@ -839,7 +855,7 @@ index 1aa0ba8..8060bfc 100644
      }
      Box(
          modifier = modifier
-@@ -475,6 +560,7 @@ private fun AutomotiveMetadataNavigationRow(
+@@ -475,6 +578,7 @@ private fun AutomotiveMetadataNavigationRow(
      onlineNavigationSourceId: String?,
      onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
      modifier: Modifier = Modifier,
@@ -847,7 +863,7 @@ index 1aa0ba8..8060bfc 100644
  ) {
      val navigationTargets = remember(
          snapshot.currentDisplayAlbumTitle,
-@@ -504,62 +590,33 @@ private fun AutomotiveMetadataNavigationRow(
+@@ -504,62 +608,33 @@ private fun AutomotiveMetadataNavigationRow(
          primary = snapshot.currentDisplayAlbumTitle,
          fallback = track.albumTitle,
      )
@@ -930,7 +946,7 @@ index 1aa0ba8..8060bfc 100644
      )
  }
  
-@@ -567,6 +624,7 @@ private fun AutomotiveMetadataText(
+@@ -567,6 +642,7 @@ private fun AutomotiveMetadataText(
  private fun AutomotivePlaybackProgress(
      snapshot: PlaybackSnapshot,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -938,7 +954,7 @@ index 1aa0ba8..8060bfc 100644
      modifier: Modifier = Modifier,
  ) {
      var dragFraction by remember(snapshot.currentTrack?.id, snapshot.durationMs) {
-@@ -615,18 +673,107 @@ private fun AutomotivePlaybackProgress(
+@@ -615,18 +691,107 @@ private fun AutomotivePlaybackProgress(
          ) {
              Text(
                  text = formatDuration(snapshot.positionMs),
@@ -1048,7 +1064,7 @@ index 1aa0ba8..8060bfc 100644
  @Composable
  private fun AutomotiveRoundedSliderTrack(
      progressFraction: Float,
-@@ -734,19 +881,45 @@ private fun AutomotiveLyricsPane(
+@@ -734,19 +899,45 @@ private fun AutomotiveLyricsPane(
      state: PlayerState,
      track: Track,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -1102,7 +1118,7 @@ index 1aa0ba8..8060bfc 100644
      }
  }
  
-@@ -792,9 +965,8 @@ internal fun resolveAutomotiveTopControlButtonSize(maxWidth: Dp): Dp =
+@@ -792,9 +983,8 @@ internal fun resolveAutomotiveTopControlButtonSize(maxWidth: Dp): Dp =
      minOf(AutomotiveTopControlsSlotHeight, maxWidth / 3f)
          .coerceAtLeast(AutomotiveControlMinimumTouchSize)
  
@@ -1114,11 +1130,21 @@ index 1aa0ba8..8060bfc 100644
  
  internal fun resolveAutomotivePureModeAfterTwoFingerTap(
      isPureMode: Boolean,
-@@ -1190,11 +1362,23 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
+@@ -1190,11 +1380,33 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
  private val AutomotiveFiveControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 5
  private val AutomotivePrimaryControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 3
  private val AutomotiveTopControlsSlotHeight = 64.dp
-+private val AutomotivePureModeTopSlotHeight = 116.dp
++// v16：最大化页顶部时钟槽 116 → 88dp（时钟字号不变，只是把 108sp 的宽松行高收到 81sp）。
++// 省下的 28dp 全部回补给封面与底行安全边距，是"封面尺寸保持不变"的关键。
++private val AutomotivePureModeTopSlotHeight = 88.dp
++// v16：最大化页专用间距/边距（数值与 AutomotiveTrackAndProgress 里实际使用的样式一一对应）
++// v16.1：应伍所要求，封面↔歌名间距由 10 → 6dp；封面尺寸锁定 216dp 上限，
++// 收紧间距腾出的空间转为顶/底呼吸余量，而不是把封面撑大（仍守住"封面保持 216 不变"）
++private val AutomotivePureModeArtworkTitleGap = 6.dp
++private val AutomotivePureModeMetadataGap = 4.dp
++private val AutomotivePureModeBottomSafeGap = 20.dp
++private val AutomotivePureModeArtworkMinSize = 120.dp
++private val AutomotivePureModeArtworkMaxSize = 216.dp
 +private val AutomotiveMaximizeBackButtonSize = 84.dp
 +private val AutomotiveMaximizeBackIconSize = 48.dp
 +private const val AutomotivePureModeArtworkScale = 1.25f
@@ -1138,7 +1164,7 @@ index 1aa0ba8..8060bfc 100644
  internal data class AutomotiveTrackAndProgressLayout(
      val compactVertical: Boolean,
      val artworkSize: Dp,
-@@ -1324,3 +1508,38 @@ private fun automotiveMetadataValue(
+@@ -1324,3 +1536,41 @@ private fun automotiveMetadataValue(
      return primary?.trim()?.takeIf { it.isNotBlank() }
          ?: fallback?.trim()?.takeIf { it.isNotBlank() }
  }
@@ -1168,9 +1194,12 @@ index 1aa0ba8..8060bfc 100644
 +            text = timeStr.value,
 +            // 显式 TextStyle（不依赖 MaterialTheme.typography，避免被全局放大波及）
 +            // lineHeight 必须随 fontSize 放大，否则字形被垂直裁切（v3 时钟显示不全的原因）
++            // v16：行高由 72f×scale(=108sp) 收到 54f×scale(=81sp)。时钟只有数字、没有下伸部，
++            // 81sp 的行盒仍远高于 90sp 字号的实际字形高度（≈65dp），字形不会被切；
++            // 但行盒变矮使顶部槽得以下压到 88dp，把 28dp 还给封面/底行安全边距。
 +            style = TextStyle(
 +                fontSize = (60f * scale).sp,
-+                lineHeight = (72f * scale).sp,
++                lineHeight = (54f * scale).sp,
 +                fontWeight = FontWeight.ExtraBold,
 +            ),
 +            color = Color.White.copy(alpha = 0.96f),

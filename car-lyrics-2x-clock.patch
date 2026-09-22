@@ -143,6 +143,324 @@ index e25bda7..e46a92f 100644
                  Box(
                      modifier = Modifier
                          .fillMaxSize()
+diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AppCommonUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AppCommonUi.kt
+index 52cb8a2..05a83fe 100644
+--- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AppCommonUi.kt
++++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AppCommonUi.kt
+@@ -45,6 +45,7 @@ import androidx.compose.material.icons.rounded.GraphicEq
+ import androidx.compose.material.icons.rounded.LibraryMusic
+ import androidx.compose.material.icons.rounded.MusicNote
+ import androidx.compose.material.icons.rounded.Person
++import androidx.compose.material.icons.rounded.PlayArrow
+ import androidx.compose.material.icons.rounded.Repeat
+ import androidx.compose.material.icons.rounded.RepeatOne
+ import androidx.compose.material.icons.rounded.Shuffle
+@@ -88,6 +89,7 @@ import androidx.compose.ui.geometry.Offset
+ import androidx.compose.ui.graphics.Brush
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.graphics.ImageBitmap
++import androidx.compose.ui.graphics.StrokeCap
+ import androidx.compose.ui.graphics.drawscope.Stroke
+ import androidx.compose.ui.graphics.graphicsLayer
+ import androidx.compose.ui.graphics.toPixelMap
+@@ -677,24 +679,70 @@ internal fun DetailSummaryCard(
+     }
+ }
+ 
++/**
++ * v17：专辑 / 文件夹列表行的统一行高。
++ * 原行高 = 缩略图 52dp + 上下内边距 12dp × 2 = 76dp，这里显式固定住，
++ * 好让行首的方形播放按钮正好等于行高（伍所要求：方形、与列表的高度同高）。
++ */
++internal val LibraryRowHeight = 76.dp
++
++/**
++ * v17：列表行最左端的方形播放按钮。
++ * 点击直接播放该专辑 / 文件夹下的全部歌曲，无需先进详情页；
++ * 行内其余区域仍保持原有点击行为（进入详情）。
++ */
++@Composable
++internal fun LibraryRowPlayButton(
++    size: Dp,
++    contentDescription: String,
++    enabled: Boolean = true,
++    onClick: () -> Unit,
++) {
++    val scheme = MaterialTheme.colorScheme
++    Box(
++        modifier = Modifier
++            .size(size)
++            .clip(RoundedCornerShape(16.dp))
++            .background(scheme.secondary.copy(alpha = if (enabled) 0.92f else 0.4f))
++            .clickable(enabled = enabled, onClick = onClick),
++        contentAlignment = Alignment.Center,
++    ) {
++        Icon(
++            imageVector = Icons.Rounded.PlayArrow,
++            contentDescription = contentDescription,
++            tint = scheme.onSecondary.copy(alpha = if (enabled) 1f else 0.5f),
++            modifier = Modifier.size(size * 0.44f),
++        )
++    }
++}
++
+ @Composable
+ internal fun AlbumRow(
+     album: Album,
+     artworkLocator: String?,
+     artworkCacheKey: String? = null,
+     onClick: () -> Unit,
++    onPlayAll: (() -> Unit)? = null,
+ ) {
+     val shellColors = mainShellColors
+     Column(modifier = Modifier.fillMaxWidth()) {
+         Row(
+             modifier = Modifier
+                 .fillMaxWidth()
++                .height(LibraryRowHeight)
+                 .clip(RoundedCornerShape(18.dp))
+                 .clickable(onClick = onClick)
+-                .padding(horizontal = 14.dp, vertical = 12.dp),
++                .padding(start = if (onPlayAll == null) 14.dp else 0.dp, end = 14.dp),
+             verticalAlignment = Alignment.CenterVertically,
+             horizontalArrangement = Arrangement.spacedBy(14.dp),
+         ) {
++            if (onPlayAll != null) {
++                LibraryRowPlayButton(
++                    size = LibraryRowHeight,
++                    contentDescription = "播放全部",
++                    onClick = onPlayAll,
++                )
++            }
+             TrackArtworkThumbnail(
+                 artworkLocator = artworkLocator,
+                 artworkCacheKey = artworkCacheKey,
+@@ -2056,6 +2104,7 @@ private fun HalfOutRecordArtwork(
+     val recordSize = artworkSize * 0.86f
+     val sleeveRadius = artworkSize * 0.035f
+     val rotation = remember { Animatable(0f) }
++    // v17：转速 18 秒/圈 → 12 秒/圈（伍所反馈深色封面下"感觉没动"，转快一点更容易感知）
+     LaunchedEffect(spinning) {
+         if (!spinning) return@LaunchedEffect
+         while (true) {
+@@ -2064,7 +2113,7 @@ private fun HalfOutRecordArtwork(
+             rotation.animateTo(
+                 targetValue = start + 360f,
+                 animationSpec = tween(
+-                    durationMillis = 18_000,
++                    durationMillis = 12_000,
+                     easing = LinearEasing,
+                 ),
+             )
+@@ -2142,39 +2191,30 @@ private fun HalfOutRecordDisc(
+         modifier = modifier,
+         contentAlignment = Alignment.Center,
+     ) {
+-        val label = "LynMusic"
+-        val labelFontSize = if (maxWidth < 260.dp) 10.sp else 13.sp
+-        val labelTextStyle = MaterialTheme.typography.labelSmall.copy(
+-            fontSize = labelFontSize,
+-            fontWeight = FontWeight.SemiBold,
+-            letterSpacing = 0.sp,
++        // v17：唱片只有右半边露在封面外，原版「均匀淡环（alpha 0.10→0.045）+ 一圈 0.16 的文字」
++        // 在深色封面下几乎看不出在转（伍所实拍反馈"全是黑色时感觉没动"）。本版三管齐下：
++        //   ① 环带明暗相间：亮环 0.18 / 暗环 0.055 交替，每 6 圈一条 0.30 的主分隔环（对比提约一倍）
++        //   ② 环形文字增到两圈：外圈 LYNMUSIC · 33⅓ RPM · STEREO，内圈 LynMusic，亮度 0.16 → 0.26/0.30
++        //   ③ 新增亮色径向起始刻度：不对称元素，纯黑背景下最容易看出转动
++        val arcLabels = listOf(
++            VinylDiscArcLabel(
++                text = "LYNMUSIC · 33⅓ RPM · STEREO · ",
++                radiusFraction = 0.80f,
++                centerAngleDegrees = 0f,
++                alpha = 0.30f,
++                fontSizeSp = if (maxWidth < 260.dp) 9f else 11f,
++            ),
++            VinylDiscArcLabel(
++                text = "LynMusic",
++                radiusFraction = 0.46f,
++                centerAngleDegrees = -26f,
++                alpha = 0.26f,
++                fontSizeSp = if (maxWidth < 260.dp) 10f else 12f,
++            ),
+         )
+-        val textMeasurer = rememberTextMeasurer(cacheSize = label.length)
+-        val labelCharacters = remember(label) { label.map { it.toString() } }
+-        val labelCharacterWidthsPx = remember(labelCharacters, labelTextStyle, textMeasurer) {
+-            labelCharacters.map { character ->
+-                textMeasurer.measure(
+-                    text = character,
+-                    style = labelTextStyle,
+-                    maxLines = 1,
+-                    softWrap = false,
+-                ).size.width.toFloat()
+-            }
+-        }
+         val density = LocalDensity.current
+-        val labelRadius = maxWidth * 0.40f
+-        val labelRadiusPx = with(density) { labelRadius.toPx() }
+-        val labelGapPx = with(density) { 1.dp.toPx() }
+-        val labelCenterAngle = -41f
+-        val labelTotalArcLengthPx = remember(labelCharacterWidthsPx, labelGapPx) {
+-            labelCharacterWidthsPx.sum() + labelGapPx * (labelCharacterWidthsPx.size - 1).coerceAtLeast(0)
+-        }
+-        val labelTotalAngle = if (labelRadiusPx > 0f) {
+-            labelTotalArcLengthPx / labelRadiusPx * 180f / PI.toFloat()
+-        } else {
+-            0f
+-        }
+-        val labelStartAngle = labelCenterAngle - labelTotalAngle / 2f
++        val discRadius = maxWidth / 2f
++        val textMeasurer = rememberTextMeasurer(cacheSize = 96)
+         Canvas(modifier = Modifier.fillMaxSize()) {
+             val radius = min(size.width, size.height) / 2f
+             drawCircle(
+@@ -2188,15 +2228,26 @@ private fun HalfOutRecordDisc(
+                 ),
+                 radius = radius,
+             )
++            // v17：明暗相间的环带（原为均匀淡环，深色封面下辨不出转动）
+             repeat(28) { index ->
+                 val fraction = (index + 2) / 31f
+                 val ringRadius = radius * fraction
+-                val ringAlpha = 0.10f - fraction * 0.055f
+-                if (ringAlpha > 0f) {
++                val ringAlpha = when {
++                    index % 6 == 0 -> 0.30f * (1f - fraction * 0.22f)
++                    index % 2 == 0 -> 0.18f * (1f - fraction * 0.30f)
++                    else -> 0.055f * (1f - fraction * 0.30f)
++                }
++                if (ringAlpha > 0.01f) {
+                     drawCircle(
+                         color = Color.White.copy(alpha = ringAlpha),
+                         radius = ringRadius,
+-                        style = Stroke(width = if (index % 5 == 0) 1.5f else 0.8f),
++                        style = Stroke(
++                            width = when {
++                                index % 6 == 0 -> 1.8f
++                                index % 2 == 0 -> 1.1f
++                                else -> 0.8f
++                            },
++                        ),
+                     )
+                 }
+             }
+@@ -2222,37 +2273,93 @@ private fun HalfOutRecordDisc(
+                 color = Color.Black.copy(alpha = 0.36f),
+                 radius = radius * 0.052f,
+             )
++            // v17：亮色径向起始刻度 —— 圆盘上唯一的不对称标记，随唱片一起旋转，
++            // 即使封面是全黑，也能一眼看出"在转"（38° 朝右下，落在露出的右半边内）
++            val cueAngle = 38f * PI.toFloat() / 180f
++            drawLine(
++                color = Color.White.copy(alpha = 0.88f),
++                start = Offset(
++                    center.x + radius * 0.60f * cos(cueAngle.toDouble()).toFloat(),
++                    center.y + radius * 0.60f * sin(cueAngle.toDouble()).toFloat(),
++                ),
++                end = Offset(
++                    center.x + radius * 0.96f * cos(cueAngle.toDouble()).toFloat(),
++                    center.y + radius * 0.96f * sin(cueAngle.toDouble()).toFloat(),
++                ),
++                strokeWidth = 3f,
++                cap = StrokeCap.Round,
++            )
+         }
+-        var consumedArcLengthPx = 0f
+-        labelCharacters.forEachIndexed { index, character ->
+-            val characterWidthPx = labelCharacterWidthsPx.getOrElse(index) { 0f }
+-            val characterCenterArcLengthPx = consumedArcLengthPx + characterWidthPx / 2f
+-            val angleOffset = if (labelRadiusPx > 0f) {
+-                characterCenterArcLengthPx / labelRadiusPx * 180f / PI.toFloat()
++        arcLabels.forEach { label ->
++            val labelTextStyle = MaterialTheme.typography.labelSmall.copy(
++                fontSize = label.fontSizeSp.sp,
++                fontWeight = FontWeight.SemiBold,
++                letterSpacing = 0.sp,
++            )
++            val characters = remember(label.text) { label.text.map { it.toString() } }
++            val characterWidthsPx = remember(characters, labelTextStyle, textMeasurer) {
++                characters.map { character ->
++                    textMeasurer.measure(
++                        text = character,
++                        style = labelTextStyle,
++                        maxLines = 1,
++                        softWrap = false,
++                    ).size.width.toFloat()
++                }
++            }
++            val labelRadius = discRadius * label.radiusFraction
++            val labelRadiusPx = with(density) { labelRadius.toPx() }
++            val labelGapPx = with(density) { 1.dp.toPx() }
++            val totalArcLengthPx = characterWidthsPx.sum() +
++                labelGapPx * (characterWidthsPx.size - 1).coerceAtLeast(0)
++            val totalAngle = if (labelRadiusPx > 0f) {
++                totalArcLengthPx / labelRadiusPx * 180f / PI.toFloat()
+             } else {
+                 0f
+             }
+-            val angle = labelStartAngle + angleOffset
+-            val radians = angle * PI.toFloat() / 180f
+-            Text(
+-                text = character,
+-                color = Color.White.copy(alpha = 0.16f),
+-                style = labelTextStyle,
+-                maxLines = 1,
+-                overflow = TextOverflow.Clip,
+-                modifier = Modifier
+-                    .align(Alignment.Center)
+-                    .offset(
+-                        x = labelRadius * cos(radians.toDouble()).toFloat(),
+-                        y = labelRadius * sin(radians.toDouble()).toFloat(),
+-                    )
+-                    .graphicsLayer { rotationZ = angle + 90f },
+-            )
+-            consumedArcLengthPx += characterWidthPx + labelGapPx
++            val startAngle = label.centerAngleDegrees - totalAngle / 2f
++            var consumedArcLengthPx = 0f
++            characters.forEachIndexed { index, character ->
++                val characterWidthPx = characterWidthsPx.getOrElse(index) { 0f }
++                val characterCenterArcLengthPx = consumedArcLengthPx + characterWidthPx / 2f
++                val angleOffset = if (labelRadiusPx > 0f) {
++                    characterCenterArcLengthPx / labelRadiusPx * 180f / PI.toFloat()
++                } else {
++                    0f
++                }
++                val angle = startAngle + angleOffset
++                val radians = angle * PI.toFloat() / 180f
++                Text(
++                    text = character,
++                    color = Color.White.copy(alpha = label.alpha),
++                    style = labelTextStyle,
++                    maxLines = 1,
++                    overflow = TextOverflow.Clip,
++                    modifier = Modifier
++                        .align(Alignment.Center)
++                        .offset(
++                            x = labelRadius * cos(radians.toDouble()).toFloat(),
++                            y = labelRadius * sin(radians.toDouble()).toFloat(),
++                        )
++                        .graphicsLayer { rotationZ = angle + 90f },
++                )
++                consumedArcLengthPx += characterWidthPx + labelGapPx
++            }
+         }
+     }
+ }
+ 
++/**
++ * v17：半出唱片的环形文字描述。唱片可见的只有右半边，所以文字中心角统一放在右侧（-90°~90°）。
++ */
++private data class VinylDiscArcLabel(
++    val text: String,
++    val radiusFraction: Float,
++    val centerAngleDegrees: Float,
++    val alpha: Float,
++    val fontSizeSp: Float,
++)
++
+ @Composable
+ private fun MinimalCoverArtwork(
+     artworkSize: Dp,
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AutoStartBootPrefs.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AutoStartBootPrefs.kt
 new file mode 100644
 index 0000000..1bfc08e
@@ -156,10 +474,32 @@ index 0000000..1bfc08e
 +expect fun readAutoStartOnBoot(context: Any): Boolean
 +expect fun writeAutoStartOnBoot(context: Any, enabled: Boolean)
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
-index ca2a2d3..01b8056 100644
+index ca2a2d3..f97e2e6 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
-@@ -1423,6 +1423,12 @@ private fun LibraryBrowserTab(
+@@ -553,6 +553,21 @@ internal data class LibraryFolderTree(
+     val folderCount: Int = nodesByKey.size
+ }
+ 
++/**
++ * v17：递归收集某个文件夹（含其所有下级子文件夹）里的全部歌曲。
++ * 供列表行首的方形播放按钮使用 —— 伍所选择"含子文件夹"的口径。
++ * 直接歌曲排在前、子文件夹歌曲按顺序接在后面，避免同一首歌重复。
++ */
++internal fun LibraryFolderTree.collectTracksRecursively(key: LibraryFolderKey): List<Track> {
++    val direct = directTracksByKey[key].orEmpty()
++    val children = childFoldersByKey[key].orEmpty()
++    if (children.isEmpty()) return direct
++    val nested = children.flatMap { collectTracksRecursively(it.key) }
++    if (nested.isEmpty()) return direct
++    val directIds = direct.mapTo(mutableSetOf()) { it.id }
++    return direct + nested.filterNot { it.id in directIds }
++}
++
+ internal fun deriveLibraryFolderTree(
+     tracks: List<Track>,
+     sourceLabelsById: Map<String, String>,
+@@ -1423,6 +1438,12 @@ private fun LibraryBrowserTab(
                              artworkCacheKey = albumTracks.firstOrNull()?.let(::trackArtworkCacheKey),
                          )
                      }
@@ -172,7 +512,7 @@ index ca2a2d3..01b8056 100644
                      item {
                          SectionTitle(title = "歌曲", subtitle = "当前专辑下的可见歌曲。")
                      }
-@@ -1583,6 +1589,12 @@ private fun LibraryBrowserTab(
+@@ -1583,6 +1604,12 @@ private fun LibraryBrowserTab(
                              artworkCacheKey = selectedFolderTracks.firstOrNull()?.let(::trackArtworkCacheKey),
                          )
                      }
@@ -185,7 +525,20 @@ index ca2a2d3..01b8056 100644
                      if (selectedFolderChildren.isNotEmpty()) {
                          item {
                              SectionTitle(title = "文件夹", subtitle = "当前目录下的子文件夹。")
-@@ -1682,6 +1694,12 @@ private fun LibraryBrowserTab(
+@@ -1591,6 +1618,12 @@ private fun LibraryBrowserTab(
+                             FolderRow(
+                                 folder = folder,
+                                 onClick = { selectFolder(folder) },
++                                onPlayAll = {
++                                    actions.onPlayTracks(
++                                        folderTree.collectTracksRecursively(folder.key),
++                                        0,
++                                    )
++                                },
+                             )
+                         }
+                     }
+@@ -1682,6 +1715,12 @@ private fun LibraryBrowserTab(
                      } else {
                          when (rootView) {
                              LibraryBrowserRootView.Tracks -> {
@@ -198,7 +551,62 @@ index ca2a2d3..01b8056 100644
                                  itemsIndexed(
                                      state.tracks,
                                      key = { _, item -> item.id }) { index, trackItem ->
-@@ -2802,6 +2820,59 @@ internal fun SourcesTab(
+@@ -1733,6 +1772,12 @@ private fun LibraryBrowserTab(
+                                             actions.onAlbumClick(albumItem)
+                                             selectedAlbumId = album.id
+                                         },
++                                        onPlayAll = {
++                                            val albumTracks = tracksByAlbumId[album.id].orEmpty()
++                                            if (albumTracks.isNotEmpty()) {
++                                                actions.onPlayTracks(albumTracks, 0)
++                                            }
++                                        },
+                                     )
+                                 }
+                                 if (state.capabilities.canLoadMoreAlbums) {
+@@ -1777,6 +1822,12 @@ private fun LibraryBrowserTab(
+                                     FolderRow(
+                                         folder = folder,
+                                         onClick = { selectFolder(folder) },
++                                        onPlayAll = {
++                                            actions.onPlayTracks(
++                                                folderTree.collectTracksRecursively(folder.key),
++                                                0,
++                                            )
++                                        },
+                                     )
+                                 }
+                             }
+@@ -2119,18 +2170,27 @@ private fun compactLibraryRootIcon(
+ private fun FolderRow(
+     folder: LibraryFolderNode,
+     onClick: () -> Unit,
++    onPlayAll: (() -> Unit)? = null,
+ ) {
+     val shellColors = mainShellColors
+     Column(modifier = Modifier.fillMaxWidth()) {
+         Row(
+             modifier = Modifier
+                 .fillMaxWidth()
++                .height(LibraryRowHeight)
+                 .clip(RoundedCornerShape(18.dp))
+                 .clickable(onClick = onClick)
+-                .padding(horizontal = 14.dp, vertical = 12.dp),
++                .padding(start = if (onPlayAll == null) 14.dp else 0.dp, end = 14.dp),
+             verticalAlignment = Alignment.CenterVertically,
+             horizontalArrangement = Arrangement.spacedBy(14.dp),
+         ) {
++            if (onPlayAll != null) {
++                LibraryRowPlayButton(
++                    size = LibraryRowHeight,
++                    contentDescription = "播放此文件夹全部歌曲",
++                    onClick = onPlayAll,
++                )
++            }
+             Box(
+                 modifier = Modifier
+                     .size(52.dp)
+@@ -2802,6 +2862,59 @@ internal fun SourcesTab(
                  title = "导入来源",
                  subtitle = "本地文件夹原地索引，Samba、WebDAV、Navidrome、Subsonic/OpenSubsonic 与 Emby 作为远程音乐库。"
              )
@@ -258,7 +666,7 @@ index ca2a2d3..01b8056 100644
              state.message?.let { message ->
                  BannerCard(message = message, onDismiss = { onImportIntent(ImportIntent.ClearMessage) })
              }
-@@ -3889,3 +3960,37 @@ internal fun remoteSourceEditorTrackCountLabel(
+@@ -3889,3 +4002,37 @@ internal fun remoteSourceEditorTrackCountLabel(
  private fun isMobileSourcesPlatform(platform: PlatformDescriptor): Boolean {
      return platform.name == "Android" || platform.name == "iPhone / iPad"
  }
@@ -516,7 +924,7 @@ index 1e5fc1c..b5ff8a4 100644
              MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
                  Row(
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
-index 1aa0ba8..50bba30 100644
+index 1aa0ba8..5a64a14 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 @@ -3,6 +3,7 @@ package top.iwesley.lyn.music.automotive
@@ -698,7 +1106,7 @@ index 1aa0ba8..50bba30 100644
                  contentAlignment = Alignment.Center,
              ) {
                  if (pureModePresentation.showPlaybackControls) {
-@@ -286,19 +346,54 @@ private fun AutomotiveTrackAndProgress(
+@@ -286,19 +346,56 @@ private fun AutomotiveTrackAndProgress(
      onlineNavigationSourceId: String?,
      onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -716,12 +1124,13 @@ index 1aa0ba8..50bba30 100644
          )
 -        val compactVertical = layout.compactVertical
 +        val compactVertical = baseLayout.compactVertical
-+        // v16：最大化页封面尺寸不再按"可用高度 × 0.76"硬取比例 —— 那个比例只考虑封面自己，
-+        // 会把下面的「歌名 + 歌手·专辑」两行挤到框外；整块又是底对齐，于是末行正好压在屏幕下沿，
-+        // 在车机上看到的就是"歌手·专辑被切掉"（V13 实拍即此现象，代码级复算超框约 38dp）。
-+        // 改为按实际要占的两行文字高度反推封面：
-+        //   封面 = 可用高度 − 文字区(歌名行高 + 间距 + 底行高) − 封面↔歌名间距 − 底部安全边距
-+        // 这样任何车机分辨率/全局字号下内容都放得下，末行永远离屏幕下沿留有安全边距。
++        // v17：封面尺寸取「三个上限」里的最小值 ——
++        //   ① maxWidth × 0.92        横向不越界
++        //   ② maxHeight × 0.76       v13/v15 的原始比例，保证封面观感与旧版一致（1280×720 下 480dp）
++        //   ③ maxHeight − 文字区 − 间距 − 底部安全边距
++        //                            v16 新增的防溢出安全网：小屏或大字号下自动把封面收小，
++        //                            保证「歌名 + 歌手·专辑」两行永远进安全区（v13 底行被切即因缺这一项）
++        // v16 一度只留 ③ 并把结果锁死在 216dp，导致封面上车后明显缩水（实拍确认），本版修正。
 +        val density = LocalDensity.current
 +        val pureTitleLineHeight = (
 +            if (compactVertical) AutomotiveTypography.titleLarge else AutomotiveTypography.headlineMedium
@@ -736,6 +1145,7 @@ index 1aa0ba8..50bba30 100644
 +            baseLayout.copy(
 +                artworkSize = minOf(
 +                    maxWidth * 0.92f,
++                    maxHeight * 0.76f,
 +                    maxHeight - pureTextBlockHeight -
 +                        AutomotivePureModeArtworkTitleGap - AutomotivePureModeBottomSafeGap,
 +                ).coerceIn(AutomotivePureModeArtworkMinSize, AutomotivePureModeArtworkMaxSize),
@@ -756,7 +1166,7 @@ index 1aa0ba8..50bba30 100644
          val inlineActionButtonSize = if (compactVertical) 44.dp else 52.dp
          val inlineActionIconSize = if (compactVertical) 24.dp else 28.dp
          Column(
-@@ -306,6 +401,9 @@ private fun AutomotiveTrackAndProgress(
+@@ -306,6 +403,9 @@ private fun AutomotiveTrackAndProgress(
                  .fillMaxSize()
                  .padding(bottom = layout.bottomPadding),
              horizontalAlignment = Alignment.CenterHorizontally,
@@ -766,7 +1176,7 @@ index 1aa0ba8..50bba30 100644
              verticalArrangement = Arrangement.Bottom,
          ) {
              AutomotiveSwipeableArtwork(
-@@ -332,36 +430,45 @@ private fun AutomotiveTrackAndProgress(
+@@ -332,36 +432,45 @@ private fun AutomotiveTrackAndProgress(
                          style = titleStyle,
                          fontWeight = FontWeight.ExtraBold,
                          color = Color.White.copy(alpha = 0.96f),
@@ -832,7 +1242,7 @@ index 1aa0ba8..50bba30 100644
          }
      }
  }
-@@ -387,16 +494,12 @@ private fun AutomotiveSwipeableArtwork(
+@@ -387,16 +496,12 @@ private fun AutomotiveSwipeableArtwork(
          animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
          label = "automotive-artwork-swipe-offset",
      )
@@ -855,7 +1265,7 @@ index 1aa0ba8..50bba30 100644
      }
      Box(
          modifier = modifier
-@@ -475,6 +578,7 @@ private fun AutomotiveMetadataNavigationRow(
+@@ -475,6 +580,7 @@ private fun AutomotiveMetadataNavigationRow(
      onlineNavigationSourceId: String?,
      onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
      modifier: Modifier = Modifier,
@@ -863,7 +1273,7 @@ index 1aa0ba8..50bba30 100644
  ) {
      val navigationTargets = remember(
          snapshot.currentDisplayAlbumTitle,
-@@ -504,62 +608,33 @@ private fun AutomotiveMetadataNavigationRow(
+@@ -504,62 +610,33 @@ private fun AutomotiveMetadataNavigationRow(
          primary = snapshot.currentDisplayAlbumTitle,
          fallback = track.albumTitle,
      )
@@ -946,7 +1356,7 @@ index 1aa0ba8..50bba30 100644
      )
  }
  
-@@ -567,6 +642,7 @@ private fun AutomotiveMetadataText(
+@@ -567,6 +644,7 @@ private fun AutomotiveMetadataText(
  private fun AutomotivePlaybackProgress(
      snapshot: PlaybackSnapshot,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -954,7 +1364,7 @@ index 1aa0ba8..50bba30 100644
      modifier: Modifier = Modifier,
  ) {
      var dragFraction by remember(snapshot.currentTrack?.id, snapshot.durationMs) {
-@@ -615,18 +691,107 @@ private fun AutomotivePlaybackProgress(
+@@ -615,18 +693,107 @@ private fun AutomotivePlaybackProgress(
          ) {
              Text(
                  text = formatDuration(snapshot.positionMs),
@@ -1064,7 +1474,7 @@ index 1aa0ba8..50bba30 100644
  @Composable
  private fun AutomotiveRoundedSliderTrack(
      progressFraction: Float,
-@@ -734,19 +899,45 @@ private fun AutomotiveLyricsPane(
+@@ -734,19 +901,45 @@ private fun AutomotiveLyricsPane(
      state: PlayerState,
      track: Track,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -1118,7 +1528,7 @@ index 1aa0ba8..50bba30 100644
      }
  }
  
-@@ -792,9 +983,8 @@ internal fun resolveAutomotiveTopControlButtonSize(maxWidth: Dp): Dp =
+@@ -792,9 +985,8 @@ internal fun resolveAutomotiveTopControlButtonSize(maxWidth: Dp): Dp =
      minOf(AutomotiveTopControlsSlotHeight, maxWidth / 3f)
          .coerceAtLeast(AutomotiveControlMinimumTouchSize)
  
@@ -1130,7 +1540,7 @@ index 1aa0ba8..50bba30 100644
  
  internal fun resolveAutomotivePureModeAfterTwoFingerTap(
      isPureMode: Boolean,
-@@ -1190,11 +1380,33 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
+@@ -1190,11 +1382,36 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
  private val AutomotiveFiveControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 5
  private val AutomotivePrimaryControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 3
  private val AutomotiveTopControlsSlotHeight = 64.dp
@@ -1138,13 +1548,16 @@ index 1aa0ba8..50bba30 100644
 +// 省下的 28dp 全部回补给封面与底行安全边距，是"封面尺寸保持不变"的关键。
 +private val AutomotivePureModeTopSlotHeight = 88.dp
 +// v16：最大化页专用间距/边距（数值与 AutomotiveTrackAndProgress 里实际使用的样式一一对应）
-+// v16.1：应伍所要求，封面↔歌名间距由 10 → 6dp；封面尺寸锁定 216dp 上限，
-+// 收紧间距腾出的空间转为顶/底呼吸余量，而不是把封面撑大（仍守住"封面保持 216 不变"）
++// v16.1：应伍所要求，封面↔歌名间距由 10 → 6dp
++// v17：修回封面尺寸。v16 把这里锁成 216dp 是算错了基数 —— 当时误把播放区可用高度当成 ~284dp，
++// 实际 1280×720 车机上播放区高度 = 720 − 88(顶部时钟槽) = 632dp，v15 的 0.76 比例给出的是 480dp，
++// 锁 216 等于把封面砍掉 55%（实拍佐证）。现恢复 v15 的 560dp 上限，尺寸公式里重新纳入 0.76 比例项，
++// 同时保留"按剩余高度反推"这一项作为小屏/大字号的防溢出安全网。
 +private val AutomotivePureModeArtworkTitleGap = 6.dp
 +private val AutomotivePureModeMetadataGap = 4.dp
 +private val AutomotivePureModeBottomSafeGap = 20.dp
 +private val AutomotivePureModeArtworkMinSize = 120.dp
-+private val AutomotivePureModeArtworkMaxSize = 216.dp
++private val AutomotivePureModeArtworkMaxSize = 560.dp
 +private val AutomotiveMaximizeBackButtonSize = 84.dp
 +private val AutomotiveMaximizeBackIconSize = 48.dp
 +private const val AutomotivePureModeArtworkScale = 1.25f
@@ -1164,7 +1577,7 @@ index 1aa0ba8..50bba30 100644
  internal data class AutomotiveTrackAndProgressLayout(
      val compactVertical: Boolean,
      val artworkSize: Dp,
-@@ -1324,3 +1536,41 @@ private fun automotiveMetadataValue(
+@@ -1324,3 +1541,41 @@ private fun automotiveMetadataValue(
      return primary?.trim()?.takeIf { it.isNotBlank() }
          ?: fallback?.trim()?.takeIf { it.isNotBlank() }
  }

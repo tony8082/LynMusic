@@ -57,6 +57,18 @@ index 0000000..01a938b
 +        }
 +    }
 +}
+diff --git a/composeApp/src/commonTest/kotlin/top/iwesley/lyn/music/PlayerStoreManualLyricsSearchTest.kt b/composeApp/src/commonTest/kotlin/top/iwesley/lyn/music/PlayerStoreManualLyricsSearchTest.kt
+index 63fb6bf..8183c95 100644
+--- a/composeApp/src/commonTest/kotlin/top/iwesley/lyn/music/PlayerStoreManualLyricsSearchTest.kt
++++ b/composeApp/src/commonTest/kotlin/top/iwesley/lyn/music/PlayerStoreManualLyricsSearchTest.kt
+@@ -598,6 +598,7 @@ private class FakePlaybackRepository(
+     override suspend fun seekTo(positionMs: Long) = Unit
+     override suspend fun setVolume(volume: Float) = Unit
+     override suspend fun cycleMode() = Unit
++    override suspend fun setMode(mode: top.iwesley.lyn.music.core.model.PlaybackMode) = Unit
+     override suspend fun overrideCurrentTrackArtwork(artworkLocator: String?) {
+         val snapshot = mutableSnapshot.value
+         val currentTrack = snapshot.currentTrack ?: return
 diff --git a/player/app/build.gradle.kts b/player/app/build.gradle.kts
 index 47637f1..1cf21ab 100644
 --- a/player/app/build.gradle.kts
@@ -144,7 +156,7 @@ index e25bda7..e46a92f 100644
                      modifier = Modifier
                          .fillMaxSize()
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AppCommonUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AppCommonUi.kt
-index 52cb8a2..05a83fe 100644
+index 52cb8a2..128e396 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AppCommonUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AppCommonUi.kt
 @@ -45,6 +45,7 @@ import androidx.compose.material.icons.rounded.GraphicEq
@@ -163,7 +175,7 @@ index 52cb8a2..05a83fe 100644
  import androidx.compose.ui.graphics.drawscope.Stroke
  import androidx.compose.ui.graphics.graphicsLayer
  import androidx.compose.ui.graphics.toPixelMap
-@@ -677,24 +679,70 @@ internal fun DetailSummaryCard(
+@@ -677,24 +679,125 @@ internal fun DetailSummaryCard(
      }
  }
  
@@ -204,6 +216,55 @@ index 52cb8a2..05a83fe 100644
 +    }
 +}
 +
++@Composable
++internal fun LibraryRowModeButtons(
++    onOrder: () -> Unit,
++    onShuffle: () -> Unit,
++) {
++    val scheme = MaterialTheme.colorScheme
++    Row(
++        modifier = Modifier
++            .height(LibraryRowHeight)
++            .widthIn(min = 104.dp)
++            .clip(RoundedCornerShape(16.dp))
++            .background(scheme.surfaceVariant.copy(alpha = 0.55f)),
++        verticalAlignment = Alignment.CenterVertically,
++    ) {
++        Box(
++            modifier = Modifier
++                .size(52.dp, LibraryRowHeight)
++                .clickable(onClick = onShuffle),
++            contentAlignment = Alignment.Center,
++        ) {
++            Text(
++                text = "随",
++                color = scheme.onSurface,
++                fontSize = 18.sp,
++                fontWeight = FontWeight.Bold,
++            )
++        }
++        Box(
++            modifier = Modifier
++                .width(1.dp)
++                .height(LibraryRowHeight * 0.5f)
++                .background(scheme.onSurfaceVariant.copy(alpha = 0.4f)),
++        )
++        Box(
++            modifier = Modifier
++                .size(52.dp, LibraryRowHeight)
++                .clickable(onClick = onOrder),
++            contentAlignment = Alignment.Center,
++        ) {
++            Text(
++                text = "顺",
++                color = scheme.onSurface,
++                fontSize = 18.sp,
++                fontWeight = FontWeight.Bold,
++            )
++        }
++    }
++}
++
  @Composable
  internal fun AlbumRow(
      album: Album,
@@ -211,6 +272,7 @@ index 52cb8a2..05a83fe 100644
      artworkCacheKey: String? = null,
      onClick: () -> Unit,
 +    onPlayAll: (() -> Unit)? = null,
++    onPlayOrder: (() -> Unit)? = null,
  ) {
      val shellColors = mainShellColors
      Column(modifier = Modifier.fillMaxWidth()) {
@@ -221,11 +283,16 @@ index 52cb8a2..05a83fe 100644
                  .clip(RoundedCornerShape(18.dp))
                  .clickable(onClick = onClick)
 -                .padding(horizontal = 14.dp, vertical = 12.dp),
-+                .padding(start = if (onPlayAll == null) 14.dp else 0.dp, end = 14.dp),
++                .padding(start = if (onPlayAll == null && onPlayOrder == null) 14.dp else 0.dp, end = 14.dp),
              verticalAlignment = Alignment.CenterVertically,
              horizontalArrangement = Arrangement.spacedBy(14.dp),
          ) {
-+            if (onPlayAll != null) {
++            if (onPlayAll != null && onPlayOrder != null) {
++                LibraryRowModeButtons(
++                    onShuffle = onPlayAll,
++                    onOrder = onPlayOrder,
++                )
++            } else if (onPlayAll != null) {
 +                LibraryRowPlayButton(
 +                    size = LibraryRowHeight,
 +                    contentDescription = "播放全部",
@@ -235,7 +302,75 @@ index 52cb8a2..05a83fe 100644
              TrackArtworkThumbnail(
                  artworkLocator = artworkLocator,
                  artworkCacheKey = artworkCacheKey,
-@@ -2056,6 +2104,7 @@ private fun HalfOutRecordArtwork(
+@@ -734,18 +837,28 @@ internal fun ArtistRow(
+     trackCount: Int?,
+     albumCount: Int?,
+     onClick: () -> Unit,
++    onPlayAll: (() -> Unit)? = null,
++    onPlayOrder: (() -> Unit)? = null,
+ ) {
+     val shellColors = mainShellColors
+     Column(modifier = Modifier.fillMaxWidth()) {
+         Row(
+             modifier = Modifier
+                 .fillMaxWidth()
++                .height(LibraryRowHeight)
+                 .clip(RoundedCornerShape(18.dp))
+                 .clickable(onClick = onClick)
+-                .padding(horizontal = 14.dp, vertical = 12.dp),
++                .padding(start = if (onPlayAll == null && onPlayOrder == null) 14.dp else 0.dp, end = 14.dp),
+             verticalAlignment = Alignment.CenterVertically,
+             horizontalArrangement = Arrangement.spacedBy(14.dp),
+         ) {
++            if (onPlayAll != null) {
++                LibraryRowPlayButton(
++                    size = LibraryRowHeight,
++                    contentDescription = "播放该艺人全部歌曲",
++                    onClick = onPlayAll,
++                )
++            }
+             Box(
+                 modifier = Modifier
+                     .size(52.dp)
+@@ -781,7 +894,7 @@ internal fun ArtistRow(
+         Box(
+             modifier = Modifier
+                 .fillMaxWidth()
+-                .padding(start = 88.dp)
++                .padding(start = LibraryRowHeight + 14.dp)
+                 .height(1.dp)
+                 .background(shellColors.cardBorder),
+         )
+@@ -814,6 +927,7 @@ internal fun TrackRow(
+     selected: Boolean = false,
+     onSelectionToggle: (() -> Unit)? = null,
+     onClick: () -> Unit,
++    leadingPlay: (() -> Unit)? = null,
+ ) {
+     val shellColors = mainShellColors
+     val showAlbumTitle = showDuration
+@@ -834,11 +948,19 @@ internal fun TrackRow(
+             enableOfflineActions = !selectionMode,
+             modifier = Modifier
+                 .fillMaxWidth()
++                .height(LibraryRowHeight)
+                 .clip(RoundedCornerShape(18.dp))
+-                .padding(horizontal = 14.dp, vertical = 12.dp),
++                .padding(start = if (leadingPlay == null || selectionMode) 14.dp else 0.dp, end = 14.dp),
+             verticalAlignment = Alignment.CenterVertically,
+             horizontalArrangement = Arrangement.spacedBy(14.dp),
+         ) {
++            if (leadingPlay != null && !selectionMode) {
++                LibraryRowPlayButton(
++                    size = LibraryRowHeight,
++                    contentDescription = "播放",
++                    onClick = leadingPlay,
++                )
++            }
+             if (selectionMode) {
+                 Checkbox(
+                     checked = selected,
+@@ -2056,6 +2178,7 @@ private fun HalfOutRecordArtwork(
      val recordSize = artworkSize * 0.86f
      val sleeveRadius = artworkSize * 0.035f
      val rotation = remember { Animatable(0f) }
@@ -243,7 +378,7 @@ index 52cb8a2..05a83fe 100644
      LaunchedEffect(spinning) {
          if (!spinning) return@LaunchedEffect
          while (true) {
-@@ -2064,7 +2113,7 @@ private fun HalfOutRecordArtwork(
+@@ -2064,7 +2187,7 @@ private fun HalfOutRecordArtwork(
              rotation.animateTo(
                  targetValue = start + 360f,
                  animationSpec = tween(
@@ -252,7 +387,7 @@ index 52cb8a2..05a83fe 100644
                      easing = LinearEasing,
                  ),
              )
-@@ -2142,39 +2191,30 @@ private fun HalfOutRecordDisc(
+@@ -2142,39 +2265,30 @@ private fun HalfOutRecordDisc(
          modifier = modifier,
          contentAlignment = Alignment.Center,
      ) {
@@ -263,10 +398,10 @@ index 52cb8a2..05a83fe 100644
 -            fontWeight = FontWeight.SemiBold,
 -            letterSpacing = 0.sp,
 +        // v17：唱片只有右半边露在封面外，原版「均匀淡环（alpha 0.10→0.045）+ 一圈 0.16 的文字」
-+        // 在深色封面下几乎看不出在转（伍所实拍反馈"全是黑色时感觉没动"）。本版三管齐下：
++        // 在深色封面下几乎看不出在转（伍所实拍反馈"全是黑色时感觉没动"）。v17/v18 累计：
 +        //   ① 环带明暗相间：亮环 0.18 / 暗环 0.055 交替，每 6 圈一条 0.30 的主分隔环（对比提约一倍）
 +        //   ② 环形文字增到两圈：外圈 LYNMUSIC · 33⅓ RPM · STEREO，内圈 LynMusic，亮度 0.16 → 0.26/0.30
-+        //   ③ 新增亮色径向起始刻度：不对称元素，纯黑背景下最容易看出转动
++        //   （v17 的亮色径向起始刻度线已于 v18 按伍所要求移除，改由 ①② 承担"看得出在转"）
 +        val arcLabels = listOf(
 +            VinylDiscArcLabel(
 +                text = "LYNMUSIC · 33⅓ RPM · STEREO · ",
@@ -314,7 +449,7 @@ index 52cb8a2..05a83fe 100644
          Canvas(modifier = Modifier.fillMaxSize()) {
              val radius = min(size.width, size.height) / 2f
              drawCircle(
-@@ -2188,15 +2228,26 @@ private fun HalfOutRecordDisc(
+@@ -2188,15 +2302,26 @@ private fun HalfOutRecordDisc(
                  ),
                  radius = radius,
              )
@@ -344,26 +479,9 @@ index 52cb8a2..05a83fe 100644
                      )
                  }
              }
-@@ -2222,37 +2273,93 @@ private fun HalfOutRecordDisc(
-                 color = Color.Black.copy(alpha = 0.36f),
+@@ -2223,36 +2348,76 @@ private fun HalfOutRecordDisc(
                  radius = radius * 0.052f,
              )
-+            // v17：亮色径向起始刻度 —— 圆盘上唯一的不对称标记，随唱片一起旋转，
-+            // 即使封面是全黑，也能一眼看出"在转"（38° 朝右下，落在露出的右半边内）
-+            val cueAngle = 38f * PI.toFloat() / 180f
-+            drawLine(
-+                color = Color.White.copy(alpha = 0.88f),
-+                start = Offset(
-+                    center.x + radius * 0.60f * cos(cueAngle.toDouble()).toFloat(),
-+                    center.y + radius * 0.60f * sin(cueAngle.toDouble()).toFloat(),
-+                ),
-+                end = Offset(
-+                    center.x + radius * 0.96f * cos(cueAngle.toDouble()).toFloat(),
-+                    center.y + radius * 0.96f * sin(cueAngle.toDouble()).toFloat(),
-+                ),
-+                strokeWidth = 3f,
-+                cap = StrokeCap.Round,
-+            )
          }
 -        var consumedArcLengthPx = 0f
 -        labelCharacters.forEachIndexed { index, character ->
@@ -461,6 +579,74 @@ index 52cb8a2..05a83fe 100644
  @Composable
  private fun MinimalCoverArtwork(
      artworkSize: Dp,
+diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AppShell.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AppShell.kt
+index f46b1ba..7786679 100644
+--- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AppShell.kt
++++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AppShell.kt
+@@ -848,6 +848,8 @@ private fun TabContent(
+         return
+     }
+ 
++    var playlistGenerateRequest by remember { mutableStateOf<PlaylistGenerateRequest?>(null) }
++
+     when (resolvedSelectedTab) {
+         AppTab.My -> MyTab(
+             platform = platform,
+@@ -869,6 +871,9 @@ private fun TabContent(
+             onFavoritesIntent = onFavoritesIntent,
+             onOnlineIntent = onOnlineLibraryIntent,
+             onPlayerIntent = onPlayerIntent,
++            onGeneratePlaylist = { tracks, defaultName ->
++                playlistGenerateRequest = PlaylistGenerateRequest(tracks, defaultName)
++            },
+             showDuration = !platform.isMobilePlatform(),
+             navigationTarget = libraryNavigationTarget,
+             onNavigationHandled = onLibraryNavigationHandled,
+@@ -929,6 +934,13 @@ private fun TabContent(
+             modifier = modifier,
+         )
+     }
++
++    PlaylistGenerateHost(
++        playlistsState = playlistsState,
++        onPlaylistsIntent = onPlaylistsIntent,
++        request = playlistGenerateRequest,
++        onDismiss = { playlistGenerateRequest = null },
++    )
+ }
+ 
+ @OptIn(ExperimentalFoundationApi::class)
+@@ -970,6 +982,7 @@ private fun MobileLibraryHubTab(
+     var libraryBatchSelectionRequestKey by rememberSaveable { mutableStateOf(0) }
+     var favoritesBatchSelectionRequestKey by rememberSaveable { mutableStateOf(0) }
+     var playlistsBatchSelectionRequestKey by rememberSaveable { mutableStateOf(0) }
++    var playlistGenerateRequest by remember { mutableStateOf<PlaylistGenerateRequest?>(null) }
+     val favoritesPullRefreshState = rememberPullToRefreshState()
+     val playlistsPullRefreshState = rememberPullToRefreshState()
+     val activeSearchTab = mobileLibraryHubTabForPage(pagerState.currentPage)
+@@ -1249,6 +1262,9 @@ private fun MobileLibraryHubTab(
+                     onFavoritesIntent = onFavoritesIntent,
+                     onOnlineIntent = onOnlineLibraryIntent,
+                     onPlayerIntent = onPlayerIntent,
++                    onGeneratePlaylist = { tracks, defaultName ->
++                        playlistGenerateRequest = PlaylistGenerateRequest(tracks, defaultName)
++                    },
+                     showDuration = false,
+                     showSearchField = false,
+                     batchSelectionRequestKey = libraryBatchSelectionRequestKey,
+@@ -1362,6 +1378,12 @@ private fun MobileLibraryHubTab(
+                 else -> Unit
+             }
+         }
++        PlaylistGenerateHost(
++            playlistsState = playlistsState,
++            onPlaylistsIntent = onPlaylistsIntent,
++            request = playlistGenerateRequest,
++            onDismiss = { playlistGenerateRequest = null },
++        )
+     }
+ }
+ 
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AutoStartBootPrefs.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AutoStartBootPrefs.kt
 new file mode 100644
 index 0000000..1bfc08e
@@ -474,10 +660,77 @@ index 0000000..1bfc08e
 +expect fun readAutoStartOnBoot(context: Any): Boolean
 +expect fun writeAutoStartOnBoot(context: Any, enabled: Boolean)
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
-index ca2a2d3..f97e2e6 100644
+index ca2a2d3..5d8f99d 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
-@@ -553,6 +553,21 @@ internal data class LibraryFolderTree(
+@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.offset
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.size
+ import androidx.compose.foundation.layout.width
++import androidx.compose.foundation.layout.weight
+ import androidx.compose.foundation.layout.widthIn
+ import androidx.compose.foundation.lazy.LazyColumn
+ import androidx.compose.foundation.lazy.LazyListState
+@@ -94,6 +95,7 @@ import androidx.compose.ui.window.Dialog
+ import androidx.compose.ui.window.DialogProperties
+ import kotlinx.coroutines.delay
+ import kotlinx.coroutines.launch
++import kotlin.random.Random
+ import top.iwesley.lyn.music.core.model.Album
+ import top.iwesley.lyn.music.core.model.Artist
+ import top.iwesley.lyn.music.core.model.ImportScanPhase
+@@ -135,6 +137,7 @@ import top.iwesley.lyn.music.feature.online.OnlineFavoritesIntent
+ import top.iwesley.lyn.music.feature.online.OnlineFavoritesState
+ import top.iwesley.lyn.music.feature.online.OnlineLibraryIntent
+ import top.iwesley.lyn.music.feature.online.OnlineLibraryState
++import top.iwesley.lyn.music.core.model.PlaybackMode
+ import top.iwesley.lyn.music.feature.player.PlayerIntent
+ import top.iwesley.lyn.music.platform.PlatformBackHandler
+ import top.iwesley.lyn.music.ui.mainShellColors
+@@ -145,6 +148,17 @@ internal enum class LibraryTabMessageDismissTarget {
+     Favorites,
+ }
+ 
++/**
++ * 播放全部时从列表中间随机挑一首作为起始曲，而不是永远从第一首开始。
++ * 偏向中部 [15%, 85%] 区间、排除最前/最后，避免"每次都选第一首或前几首"。
++ */
++private fun randomMiddleStartIndex(size: Int): Int {
++    if (size <= 2) return 0
++    val lo = (size * 0.15).toInt().coerceAtLeast(1)
++    val hi = (size * 0.85).toInt().coerceAtMost(size - 2)
++    return if (hi >= lo) lo + Random.nextInt(hi - lo + 1) else 1 + Random.nextInt(size - 1)
++}
++
+ internal fun libraryTabBrowserMessage(
+     isOnlineMode: Boolean,
+     onlineErrorMessage: String?,
+@@ -171,6 +185,7 @@ internal fun LibraryTab(
+     onFavoritesIntent: (FavoritesIntent) -> Unit,
+     onOnlineIntent: (OnlineLibraryIntent) -> Unit,
+     onPlayerIntent: (PlayerIntent) -> Unit,
++    onGeneratePlaylist: ((tracks: List<Track>, defaultName: String) -> Unit)? = null,
+     showFavoriteButton: Boolean = true,
+     showDuration: Boolean = true,
+     showSearchField: Boolean = true,
+@@ -256,6 +271,8 @@ internal fun LibraryTab(
+             }
+         },
+         onPlayTracks = { tracks, index -> onPlayerIntent(PlayerIntent.PlayTracks(tracks, index)) },
++        onSetPlaybackMode = { mode -> onPlayerIntent(PlayerIntent.SetPlaybackMode(mode)) },
++        onGeneratePlaylist = onGeneratePlaylist,
+     )
+     LibraryBrowserTab(
+         state = browserState,
+@@ -352,6 +369,7 @@ internal fun FavoritesTab(
+         },
+         onLoadMoreTracks = { onOnlineIntent(OnlineFavoritesIntent.LoadMore) },
+         onPlayTracks = { tracks, index -> onPlayerIntent(PlayerIntent.PlayTracks(tracks, index)) },
++        onSetPlaybackMode = { mode -> onPlayerIntent(PlayerIntent.SetPlaybackMode(mode)) },
+     )
+     LibraryBrowserTab(
+         state = browserState,
+@@ -553,6 +571,21 @@ internal data class LibraryFolderTree(
      val folderCount: Int = nodesByKey.size
  }
  
@@ -499,33 +752,97 @@ index ca2a2d3..f97e2e6 100644
  internal fun deriveLibraryFolderTree(
      tracks: List<Track>,
      sourceLabelsById: Map<String, String>,
-@@ -1423,6 +1438,12 @@ private fun LibraryBrowserTab(
+@@ -1391,6 +1424,13 @@ private fun LibraryBrowserTab(
+                     onSelectRootView = ::selectRootView,
+                     onPlayAllTracks = {
+                         if (visibleTracks.isNotEmpty()) {
++                            actions.onSetPlaybackMode(PlaybackMode.SHUFFLE)
++                            actions.onPlayTracks(visibleTracks, randomMiddleStartIndex(visibleTracks.size))
++                        }
++                    },
++                    onPlayOrderTracks = {
++                        if (visibleTracks.isNotEmpty()) {
++                            actions.onSetPlaybackMode(PlaybackMode.ORDER)
+                             actions.onPlayTracks(visibleTracks, 0)
+                         }
+                     },
+@@ -1423,6 +1463,28 @@ private fun LibraryBrowserTab(
                              artworkCacheKey = albumTracks.firstOrNull()?.let(::trackArtworkCacheKey),
                          )
                      }
 +                    item {
 +                        LibraryDetailPlayAllButton(
 +                            enabled = albumTracks.isNotEmpty(),
-+                            onPlayAll = { actions.onPlayTracks(albumTracks, 0) },
++                            onPlayAll = {
++                                actions.onSetPlaybackMode(PlaybackMode.SHUFFLE)
++                                actions.onPlayTracks(albumTracks, randomMiddleStartIndex(albumTracks.size))
++                            },
++                            onPlayOrder = {
++                                actions.onSetPlaybackMode(PlaybackMode.ORDER)
++                                actions.onPlayTracks(albumTracks, 0)
++                            },
 +                        )
++                    }
++                    actions.onGeneratePlaylist?.let { generatePlaylist ->
++                        item {
++                            LibraryGeneratePlaylistButton(
++                                enabled = albumTracks.isNotEmpty(),
++                                trackCount = albumTracks.size,
++                                onClick = { generatePlaylist(albumTracks, selectedAlbum.title) },
++                            )
++                        }
 +                    }
                      item {
                          SectionTitle(title = "歌曲", subtitle = "当前专辑下的可见歌曲。")
                      }
-@@ -1583,6 +1604,12 @@ private fun LibraryBrowserTab(
+@@ -1489,6 +1551,17 @@ private fun LibraryBrowserTab(
+                             },
+                         )
+                     }
++                    if (!state.isOnline && artistTracks.isNotEmpty()) {
++                        actions.onGeneratePlaylist?.let { generatePlaylist ->
++                            item {
++                                LibraryGeneratePlaylistButton(
++                                    enabled = true,
++                                    trackCount = artistTracks.size,
++                                    onClick = { generatePlaylist(artistTracks, selectedArtist.name) },
++                                )
++                            }
++                        }
++                    }
+                     item {
+                         SectionTitle(
+                             title = "专辑",
+@@ -1583,6 +1656,28 @@ private fun LibraryBrowserTab(
                              artworkCacheKey = selectedFolderTracks.firstOrNull()?.let(::trackArtworkCacheKey),
                          )
                      }
 +                    item {
 +                        LibraryDetailPlayAllButton(
 +                            enabled = selectedFolderTracks.isNotEmpty(),
-+                            onPlayAll = { actions.onPlayTracks(selectedFolderTracks, 0) },
++                            onPlayAll = {
++                                actions.onSetPlaybackMode(PlaybackMode.SHUFFLE)
++                                actions.onPlayTracks(selectedFolderTracks, randomMiddleStartIndex(selectedFolderTracks.size))
++                            },
++                            onPlayOrder = {
++                                actions.onSetPlaybackMode(PlaybackMode.ORDER)
++                                actions.onPlayTracks(selectedFolderTracks, 0)
++                            },
 +                        )
++                    }
++                    actions.onGeneratePlaylist?.let { generatePlaylist ->
++                        item {
++                            LibraryGeneratePlaylistButton(
++                                enabled = selectedFolderTracks.isNotEmpty(),
++                                trackCount = selectedFolderTracks.size,
++                                onClick = { generatePlaylist(selectedFolderTracks, selectedFolder.name) },
++                            )
++                        }
 +                    }
                      if (selectedFolderChildren.isNotEmpty()) {
                          item {
                              SectionTitle(title = "文件夹", subtitle = "当前目录下的子文件夹。")
-@@ -1591,6 +1618,12 @@ private fun LibraryBrowserTab(
+@@ -1591,6 +1686,12 @@ private fun LibraryBrowserTab(
                              FolderRow(
                                  folder = folder,
                                  onClick = { selectFolder(folder) },
@@ -538,46 +855,197 @@ index ca2a2d3..f97e2e6 100644
                              )
                          }
                      }
-@@ -1682,6 +1715,12 @@ private fun LibraryBrowserTab(
+@@ -1682,6 +1783,28 @@ private fun LibraryBrowserTab(
                      } else {
                          when (rootView) {
                              LibraryBrowserRootView.Tracks -> {
 +                                item {
 +                                    LibraryDetailPlayAllButton(
 +                                        enabled = visibleTracks.isNotEmpty(),
-+                                        onPlayAll = { actions.onPlayTracks(visibleTracks, 0) },
++                                        onPlayAll = {
++                                            actions.onSetPlaybackMode(PlaybackMode.SHUFFLE)
++                                            actions.onPlayTracks(visibleTracks, randomMiddleStartIndex(visibleTracks.size))
++                                        },
++                                        onPlayOrder = {
++                                            actions.onSetPlaybackMode(PlaybackMode.ORDER)
++                                            actions.onPlayTracks(visibleTracks, 0)
++                                        },
 +                                    )
++                                }
++                                actions.onGeneratePlaylist?.let { generatePlaylist ->
++                                    item {
++                                        LibraryGeneratePlaylistButton(
++                                            enabled = visibleTracks.isNotEmpty(),
++                                            trackCount = visibleTracks.size,
++                                            onClick = { generatePlaylist(visibleTracks, "全部歌曲") },
++                                        )
++                                    }
 +                                }
                                  itemsIndexed(
                                      state.tracks,
                                      key = { _, item -> item.id }) { index, trackItem ->
-@@ -1733,6 +1772,12 @@ private fun LibraryBrowserTab(
+@@ -1704,6 +1827,7 @@ private fun LibraryBrowserTab(
+                                         onClick = {
+                                             actions.onPlayTracks(visibleTracks, index)
+                                         },
++                                        leadingPlay = { actions.onPlayTracks(visibleTracks, index) },
+                                     )
+                                 }
+                                 if (state.capabilities.canLoadMoreTracks) {
+@@ -1733,6 +1857,20 @@ private fun LibraryBrowserTab(
                                              actions.onAlbumClick(albumItem)
                                              selectedAlbumId = album.id
                                          },
 +                                        onPlayAll = {
 +                                            val albumTracks = tracksByAlbumId[album.id].orEmpty()
 +                                            if (albumTracks.isNotEmpty()) {
++                                                actions.onSetPlaybackMode(PlaybackMode.SHUFFLE)
++                                                actions.onPlayTracks(albumTracks, randomMiddleStartIndex(albumTracks.size))
++                                            }
++                                        },
++                                        onPlayOrder = {
++                                            val albumTracks = tracksByAlbumId[album.id].orEmpty()
++                                            if (albumTracks.isNotEmpty()) {
++                                                actions.onSetPlaybackMode(PlaybackMode.ORDER)
 +                                                actions.onPlayTracks(albumTracks, 0)
 +                                            }
 +                                        },
                                      )
                                  }
                                  if (state.capabilities.canLoadMoreAlbums) {
-@@ -1777,6 +1822,12 @@ private fun LibraryBrowserTab(
+@@ -1759,6 +1897,20 @@ private fun LibraryBrowserTab(
+                                             selectedArtistId = artist.id
+                                             selectedAlbumId = null
+                                         },
++                                        onPlayAll = {
++                                            val artistTracks = tracksByArtistId[artist.id].orEmpty()
++                                            if (artistTracks.isNotEmpty()) {
++                                                actions.onSetPlaybackMode(PlaybackMode.SHUFFLE)
++                                                actions.onPlayTracks(artistTracks, randomMiddleStartIndex(artistTracks.size))
++                                            }
++                                        },
++                                        onPlayOrder = {
++                                            val artistTracks = tracksByArtistId[artist.id].orEmpty()
++                                            if (artistTracks.isNotEmpty()) {
++                                                actions.onSetPlaybackMode(PlaybackMode.ORDER)
++                                                actions.onPlayTracks(artistTracks, 0)
++                                            }
++                                        },
+                                     )
+                                 }
+                                 if (state.capabilities.canLoadMoreArtists) {
+@@ -1777,6 +1929,21 @@ private fun LibraryBrowserTab(
                                      FolderRow(
                                          folder = folder,
                                          onClick = { selectFolder(folder) },
 +                                        onPlayAll = {
++                                            val folderTracks =
++                                                folderTree.collectTracksRecursively(folder.key)
++                                            actions.onSetPlaybackMode(PlaybackMode.SHUFFLE)
 +                                            actions.onPlayTracks(
-+                                                folderTree.collectTracksRecursively(folder.key),
-+                                                0,
++                                                folderTracks,
++                                                randomMiddleStartIndex(folderTracks.size),
 +                                            )
++                                        },
++                                        onPlayOrder = {
++                                            val folderTracks =
++                                                folderTree.collectTracksRecursively(folder.key)
++                                            actions.onSetPlaybackMode(PlaybackMode.ORDER)
++                                            actions.onPlayTracks(folderTracks, 0)
 +                                        },
                                      )
                                  }
                              }
-@@ -2119,18 +2170,27 @@ private fun compactLibraryRootIcon(
+@@ -1962,6 +2129,7 @@ private fun CompactLibraryHeroCard(
+     playAllEnabled: Boolean,
+     onSelectTracks: () -> Unit,
+     onPlayAllTracks: () -> Unit,
++    onPlayOrderTracks: (() -> Unit)? = null,
+ ) {
+     val containerColor = if (selected) {
+         MaterialTheme.colorScheme.secondary
+@@ -2016,20 +2184,66 @@ private fun CompactLibraryHeroCard(
+                 overflow = TextOverflow.Ellipsis,
+             )
+         }
+-        IconButton(
+-            onClick = onPlayAllTracks,
+-            enabled = playAllEnabled,
+-            modifier = Modifier
+-                .size(42.dp)
+-                .clip(CircleShape)
+-                .background(contentColor.copy(alpha = if (playAllEnabled) 0.22f else 0.12f)),
+-        ) {
+-            Icon(
+-                imageVector = Icons.Rounded.PlayArrow,
+-                contentDescription = "播放全部歌曲",
+-                tint = contentColor.copy(alpha = if (playAllEnabled) 1f else 0.48f),
+-                modifier = Modifier.size(24.dp),
+-            )
++        if (playAllEnabled && onPlayOrderTracks != null) {
++            Row(
++                modifier = Modifier
++                    .height(60.dp)
++                    .width(116.dp)
++                    .clip(RoundedCornerShape(16.dp))
++                    .background(contentColor.copy(alpha = 0.18f)),
++                verticalAlignment = Alignment.CenterVertically,
++            ) {
++                Box(
++                    modifier = Modifier
++                        .weight(1f)
++                        .fillMaxHeight()
++                        .clickable(onClick = onPlayAllTracks),
++                    contentAlignment = Alignment.Center,
++                ) {
++                    Text(
++                        text = "随",
++                        color = contentColor,
++                        fontSize = 18.sp,
++                        fontWeight = FontWeight.Bold,
++                    )
++                }
++                Box(
++                    modifier = Modifier
++                        .width(1.dp)
++                        .fillMaxHeight()
++                        .background(contentColor.copy(alpha = 0.35f)),
++                )
++                Box(
++                    modifier = Modifier
++                        .weight(1f)
++                        .fillMaxHeight()
++                        .clickable(onClick = onPlayOrderTracks),
++                    contentAlignment = Alignment.Center,
++                ) {
++                    Text(
++                        text = "顺",
++                        color = contentColor,
++                        fontSize = 18.sp,
++                        fontWeight = FontWeight.Bold,
++                    )
++                }
++            }
++        } else {
++            IconButton(
++                onClick = onPlayAllTracks,
++                enabled = playAllEnabled,
++                modifier = Modifier
++                    .size(42.dp)
++                    .clip(CircleShape)
++                    .background(contentColor.copy(alpha = if (playAllEnabled) 0.22f else 0.12f)),
++            ) {
++                Icon(
++                    imageVector = Icons.Rounded.PlayArrow,
++                    contentDescription = "播放全部歌曲",
++                    tint = contentColor.copy(alpha = if (playAllEnabled) 1f else 0.48f),
++                    modifier = Modifier.size(24.dp),
++                )
++            }
+         }
+     }
+ }
+@@ -2119,18 +2333,32 @@ private fun compactLibraryRootIcon(
  private fun FolderRow(
      folder: LibraryFolderNode,
      onClick: () -> Unit,
@@ -596,7 +1064,12 @@ index ca2a2d3..f97e2e6 100644
              verticalAlignment = Alignment.CenterVertically,
              horizontalArrangement = Arrangement.spacedBy(14.dp),
          ) {
-+            if (onPlayAll != null) {
++            if (onPlayAll != null && onPlayOrder != null) {
++                LibraryRowModeButtons(
++                    onShuffle = onPlayAll,
++                    onOrder = onPlayOrder,
++                )
++            } else if (onPlayAll != null) {
 +                LibraryRowPlayButton(
 +                    size = LibraryRowHeight,
 +                    contentDescription = "播放此文件夹全部歌曲",
@@ -606,7 +1079,7 @@ index ca2a2d3..f97e2e6 100644
              Box(
                  modifier = Modifier
                      .size(52.dp)
-@@ -2802,6 +2862,59 @@ internal fun SourcesTab(
+@@ -2802,6 +3030,59 @@ internal fun SourcesTab(
                  title = "导入来源",
                  subtitle = "本地文件夹原地索引，Samba、WebDAV、Navidrome、Subsonic/OpenSubsonic 与 Emby 作为远程音乐库。"
              )
@@ -666,7 +1139,7 @@ index ca2a2d3..f97e2e6 100644
              state.message?.let { message ->
                  BannerCard(message = message, onDismiss = { onImportIntent(ImportIntent.ClearMessage) })
              }
-@@ -3889,3 +4002,37 @@ internal fun remoteSourceEditorTrackCountLabel(
+@@ -3889,3 +4170,117 @@ internal fun remoteSourceEditorTrackCountLabel(
  private fun isMobileSourcesPlatform(platform: PlatformDescriptor): Boolean {
      return platform.name == "Android" || platform.name == "iPhone / iPad"
  }
@@ -675,32 +1148,112 @@ index ca2a2d3..f97e2e6 100644
 +private fun LibraryDetailPlayAllButton(
 +    enabled: Boolean,
 +    onPlayAll: () -> Unit,
++    onPlayOrder: (() -> Unit)? = null,
 +    modifier: Modifier = Modifier,
 +) {
++    val scheme = MaterialTheme.colorScheme
++    if (enabled && onPlayOrder != null) {
++        Row(
++            modifier = modifier
++                .fillMaxWidth()
++                .height(60.dp)
++                .clip(RoundedCornerShape(18.dp))
++                .background(scheme.secondary.copy(alpha = 0.92f)),
++            verticalAlignment = Alignment.CenterVertically,
++        ) {
++            Box(
++                modifier = Modifier.weight(1f).fillMaxHeight().clickable(onClick = onPlayAll),
++                contentAlignment = Alignment.Center,
++            ) {
++                Text(
++                    text = "随机播放",
++                    style = MaterialTheme.typography.titleLarge,
++                    color = scheme.onSecondary,
++                    fontWeight = FontWeight.ExtraBold,
++                    maxLines = 1,
++                )
++            }
++            Box(
++                modifier = Modifier
++                    .width(1.dp)
++                    .fillMaxHeight()
++                    .background(scheme.onSecondary.copy(alpha = 0.35f)),
++            )
++            Box(
++                modifier = Modifier.weight(1f).fillMaxHeight().clickable(onClick = onPlayOrder),
++                contentAlignment = Alignment.Center,
++            ) {
++                Text(
++                    text = "顺序播放",
++                    style = MaterialTheme.typography.titleLarge,
++                    color = scheme.onSecondary,
++                    fontWeight = FontWeight.ExtraBold,
++                    maxLines = 1,
++                )
++            }
++        }
++    } else {
++        Row(
++            modifier = modifier
++                .fillMaxWidth()
++                .height(60.dp)
++                .clip(RoundedCornerShape(18.dp))
++                .background(scheme.secondary.copy(alpha = if (enabled) 0.92f else 0.4f))
++                .clickable(enabled = enabled, onClick = onPlayAll)
++                .padding(horizontal = 20.dp),
++            verticalAlignment = Alignment.CenterVertically,
++            horizontalArrangement = Arrangement.spacedBy(14.dp),
++        ) {
++            Icon(
++                imageVector = Icons.Rounded.PlayArrow,
++                contentDescription = "播放全部",
++                tint = scheme.onSecondary.copy(alpha = if (enabled) 1f else 0.5f),
++                modifier = Modifier.size(30.dp),
++            )
++            Text(
++                text = "播放全部（从头开始）",
++                style = MaterialTheme.typography.titleLarge,
++                color = scheme.onSecondary,
++                fontWeight = FontWeight.ExtraBold,
++                maxLines = 1,
++            )
++        }
++    }
++}
++
++@Composable
++private fun LibraryGeneratePlaylistButton(
++    enabled: Boolean,
++    trackCount: Int,
++    modifier: Modifier = Modifier,
++    onClick: () -> Unit,
++) {
++    val shellColors = mainShellColors
 +    val scheme = MaterialTheme.colorScheme
 +    Row(
 +        modifier = modifier
 +            .fillMaxWidth()
-+            .height(60.dp)
++            .height(56.dp)
 +            .clip(RoundedCornerShape(18.dp))
-+            .background(scheme.secondary.copy(alpha = if (enabled) 0.92f else 0.4f))
-+            .clickable(enabled = enabled, onClick = onPlayAll)
++            .background(shellColors.cardContainer.copy(alpha = if (enabled) 0.92f else 0.4f))
++            .clickable(enabled = enabled, onClick = onClick)
 +            .padding(horizontal = 20.dp),
 +        verticalAlignment = Alignment.CenterVertically,
 +        horizontalArrangement = Arrangement.spacedBy(14.dp),
 +    ) {
 +        Icon(
-+            imageVector = Icons.Rounded.PlayArrow,
-+            contentDescription = "播放全部",
-+            tint = scheme.onSecondary.copy(alpha = if (enabled) 1f else 0.5f),
-+            modifier = Modifier.size(30.dp),
++            imageVector = Icons.Rounded.Checklist,
++            contentDescription = "生成歌单",
++            tint = scheme.primary.copy(alpha = if (enabled) 1f else 0.5f),
++            modifier = Modifier.size(28.dp),
 +        )
 +        Text(
-+            text = "播放全部（从头开始）",
-+            style = MaterialTheme.typography.titleLarge,
-+            color = scheme.onSecondary,
-+            fontWeight = FontWeight.ExtraBold,
++            text = if (trackCount > 0) "生成歌单（$trackCount 首）" else "生成歌单",
++            style = MaterialTheme.typography.titleMedium,
++            color = scheme.onSurface.copy(alpha = if (enabled) 1f else 0.6f),
++            fontWeight = FontWeight.Bold,
 +            maxLines = 1,
++            overflow = TextOverflow.Ellipsis,
 +        )
 +    }
 +}
@@ -867,6 +1420,158 @@ index 906e8b6..85fb662 100644
                      )
                  }
              }
+diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/PlaylistsUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/PlaylistsUi.kt
+index 6405449..a440685 100644
+--- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/PlaylistsUi.kt
++++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/PlaylistsUi.kt
+@@ -625,6 +625,147 @@ private fun playlistAddTrackLabel(track: Track): String {
+     }
+ }
+ 
++internal data class PlaylistGenerateRequest(
++    val tracks: List<Track>,
++    val defaultName: String,
++)
++
++@Composable
++internal fun PlaylistGenerateHost(
++    playlistsState: PlaylistsState,
++    onPlaylistsIntent: (PlaylistsIntent) -> Unit,
++    request: PlaylistGenerateRequest?,
++    onDismiss: () -> Unit,
++) {
++    val activeRequest = request ?: return
++    PlaylistGenerateDialog(
++        trackCount = activeRequest.tracks.size,
++        defaultName = activeRequest.defaultName,
++        isLoadingTargets = playlistsState.isLoadingContent,
++        targets = buildPlaylistAddTargets(
++            playlists = playlistsState.playlists,
++            favoriteTrackIds = emptySet(),
++            trackId = null,
++            includeLiked = false,
++        ),
++        onDismiss = onDismiss,
++        onCreatePlaylistAndAddTracks = { name ->
++            onPlaylistsIntent(
++                PlaylistsIntent.CreatePlaylistAndAddTracks(
++                    name = name,
++                    tracks = activeRequest.tracks,
++                ),
++            )
++            onDismiss()
++        },
++        onAddTracksToTarget = { target ->
++            onPlaylistsIntent(
++                PlaylistsIntent.AddTracksToPlaylist(
++                    playlistId = target.id,
++                    tracks = activeRequest.tracks,
++                ),
++            )
++            onDismiss()
++        },
++    )
++}
++
++@Composable
++private fun PlaylistGenerateDialog(
++    trackCount: Int,
++    defaultName: String,
++    isLoadingTargets: Boolean,
++    targets: List<PlaylistAddTarget>,
++    onDismiss: () -> Unit,
++    onCreatePlaylistAndAddTracks: (String) -> Unit,
++    onAddTracksToTarget: (PlaylistAddTarget) -> Unit,
++) {
++    val shellColors = mainShellColors
++    var playlistName by rememberSaveable(defaultName) { mutableStateOf(defaultName) }
++    val fieldColors = OutlinedTextFieldDefaults.colors(
++        focusedBorderColor = mainShellColors.cardBorder,
++        unfocusedBorderColor = mainShellColors.cardBorder,
++        disabledBorderColor = mainShellColors.cardBorder,
++    )
++    AlertDialog(
++        onDismissRequest = onDismiss,
++        containerColor = shellColors.navContainer,
++        iconContentColor = MaterialTheme.colorScheme.primary,
++        titleContentColor = MaterialTheme.colorScheme.onSurface,
++        textContentColor = MaterialTheme.colorScheme.onSurface,
++        tonalElevation = 0.dp,
++        shape = RoundedCornerShape(28.dp),
++        title = { Text("生成歌单") },
++        text = {
++            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
++                Text(
++                    text = "把 $trackCount 首歌曲生成歌单，或叠加到已有歌单。",
++                    color = MaterialTheme.colorScheme.onSurfaceVariant,
++                    style = MaterialTheme.typography.bodyMedium,
++                )
++                ImeAwareOutlinedTextField(
++                    value = playlistName,
++                    onValueChange = { playlistName = it },
++                    label = { Text("歌单名称") },
++                    modifier = Modifier.fillMaxWidth(),
++                    shape = RoundedCornerShape(18.dp),
++                    colors = fieldColors,
++                )
++                Button(
++                    onClick = { onCreatePlaylistAndAddTracks(playlistName) },
++                    enabled = playlistName.trim().isNotBlank(),
++                    modifier = Modifier.fillMaxWidth(),
++                    colors = ButtonDefaults.buttonColors(
++                        containerColor = MaterialTheme.colorScheme.secondary,
++                        contentColor = MaterialTheme.colorScheme.onSecondary,
++                        disabledContainerColor = shellColors.cardContainer,
++                        disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
++                    ),
++                ) {
++                    Icon(Icons.Rounded.Add, contentDescription = null)
++                    Spacer(Modifier.width(8.dp))
++                    Text(if (trackCount > 0) "生成歌单（$trackCount 首）" else "生成歌单")
++                }
++                Box(
++                    modifier = Modifier
++                        .fillMaxWidth()
++                        .height(1.dp)
++                        .background(shellColors.cardBorder.copy(alpha = 0.72f)),
++                )
++                Text(
++                    text = "叠加到已有歌单",
++                    color = MaterialTheme.colorScheme.onSurfaceVariant,
++                    style = MaterialTheme.typography.bodyMedium,
++                )
++                if (isLoadingTargets) {
++                    PlaylistAddLoadingRow()
++                } else if (targets.isEmpty()) {
++                    PlaylistAddEmptyRow()
++                } else {
++                    LazyColumn(
++                        modifier = Modifier
++                            .fillMaxWidth()
++                            .heightIn(max = 260.dp),
++                        verticalArrangement = Arrangement.spacedBy(1.dp),
++                    ) {
++                        items(targets, key = { it.id }) { target ->
++                            PlaylistAddCompactTargetRow(
++                                target = target,
++                                onClick = { onAddTracksToTarget(target) },
++                            )
++                        }
++                    }
++                }
++            }
++        },
++        confirmButton = {
++            TextButton(onClick = onDismiss) {
++                Text("取消", color = MaterialTheme.colorScheme.onSurfaceVariant)
++            }
++        },
++    )
++}
++
+ @Composable
+ internal fun PlaylistsTab(
+     state: PlaylistsState,
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/SettingsUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/SettingsUi.kt
 index 1e5fc1c..b5ff8a4 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/SettingsUi.kt
@@ -1703,8 +2408,94 @@ index 0000000..6935c00
 +// 非 Android 平台（iOS / macOS）无需开机自启，提供空实现以满足 expect/actual 多平台编译要求。
 +actual fun readAutoStartOnBoot(context: Any): Boolean = false
 +actual fun writeAutoStartOnBoot(context: Any, enabled: Boolean) = Unit
+diff --git a/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/data/repository/PlaybackRepositories.kt b/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/data/repository/PlaybackRepositories.kt
+index 332d1e4..8f89758 100644
+--- a/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/data/repository/PlaybackRepositories.kt
++++ b/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/data/repository/PlaybackRepositories.kt
+@@ -87,6 +87,7 @@ interface PlaybackRepository {
+     suspend fun seekTo(positionMs: Long)
+     suspend fun setVolume(volume: Float)
+     suspend fun cycleMode()
++    suspend fun setMode(mode: PlaybackMode)
+     suspend fun overrideCurrentTrackArtwork(artworkLocator: String?)
+     suspend fun close()
+ }
+@@ -109,7 +110,7 @@ class DefaultPlaybackRepository(
+     private val scope: CoroutineScope,
+     private val systemPlaybackControlsPlatformService: SystemPlaybackControlsPlatformService = UnsupportedSystemPlaybackControlsPlatformService,
+     private val logger: DiagnosticLogger = NoopDiagnosticLogger,
+-    private val shuffleRandom: Random = Random.Default,
++    private val shuffleRandom: Random = Random(currentTimeMillis()),
+     hydrateImmediately: Boolean = true,
+     private val playbackStatsReporter: PlaybackStatsReporter = NoopPlaybackStatsReporter,
+     private val currentTimeMillis: () -> Long = ::now,
+@@ -511,6 +512,20 @@ class DefaultPlaybackRepository(
+         }
+     }
+ 
++    override suspend fun setMode(mode: PlaybackMode) {
++        playbackCommandMutex.withLock {
++            val snapshot = mutableSnapshot.value
++            if (snapshot.mode == mode) return@withLock
++            val nextSnapshot = when (mode) {
++                PlaybackMode.ORDER -> snapshot.toOrderSnapshot()
++                PlaybackMode.SHUFFLE -> snapshot.toShuffleSnapshot()
++                PlaybackMode.REPEAT_ONE -> snapshot.copy(mode = PlaybackMode.REPEAT_ONE)
++            }
++            mutableSnapshot.value = nextSnapshot
++            persistSnapshotContentIfPersistent()
++        }
++    }
++
+     override suspend fun overrideCurrentTrackArtwork(artworkLocator: String?) {
+         playbackCommandMutex.withLock {
+             val snapshot = mutableSnapshot.value
+@@ -690,6 +705,16 @@ class DefaultPlaybackRepository(
+             persisted.currentIndex.coerceIn(0, queueIds.lastIndex),
+         )
+         val mode = persisted.mode.toPlaybackMode()
++        val (restoredQueue, restoredIndex) = if (mode == PlaybackMode.SHUFFLE && orderedTracks.isNotEmpty()) {
++            // v18 修复A：恢复随机模式时用（时间种子的）shuffleRandom 重新洗牌，
++            // 不再原样回放持久化的洗牌队列，避免每次启动随机歌顺序都一样。
++            val currentTrackId = tracks[index].id
++            val naturalIndex = orderedTracks.indexOfFirst { it.id == currentTrackId }
++                .takeIf { it >= 0 } ?: index
++            shuffledQueueForCurrent(orderedTracks, naturalIndex)
++        } else {
++            tracks to index
++        }
+         val playWhenReady = playbackPreferencesStore.autoPlayOnStartup.value
+         var loadRequest: PlaybackLoadRequest? = null
+         var shouldApplyRestore = false
+@@ -699,14 +724,14 @@ class DefaultPlaybackRepository(
+             } else {
+                 shouldApplyRestore = true
+                 mutableSnapshot.value = PlaybackSnapshot(
+-                    queue = tracks,
++                    queue = restoredQueue,
+                     orderedQueue = orderedTracks,
+-                    currentIndex = index,
++                    currentIndex = restoredIndex,
+                     mode = mode,
+                     isHydratingPlayback = false,
+                     isPlaying = playWhenReady,
+                     positionMs = persisted.positionMs,
+-                    durationMs = tracks[index].durationMs,
++                    durationMs = restoredQueue[restoredIndex].durationMs,
+                     canSeek = false,
+                     volume = mutableSnapshot.value.volume,
+                     metadataTitle = null,
+@@ -715,7 +740,7 @@ class DefaultPlaybackRepository(
+                     metadataArtworkLocator = null,
+                 )
+                 loadRequest = createLoadRequest(
+-                    track = tracks[index],
++                    track = restoredQueue[restoredIndex],
+                     playWhenReady = playWhenReady,
+                     startPositionMs = persisted.positionMs,
+                 )
 diff --git a/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/feature/player/PlayerStore.kt b/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/feature/player/PlayerStore.kt
-index 0d86686..e426747 100644
+index 0d86686..8aba229 100644
 --- a/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/feature/player/PlayerStore.kt
 +++ b/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/feature/player/PlayerStore.kt
 @@ -80,6 +80,8 @@ fun normalizeSleepTimerMinutes(minutes: Int): Int? {
@@ -1716,7 +2507,15 @@ index 0d86686..e426747 100644
      val isQueueVisible: Boolean = false,
      val isLyricsLoading: Boolean = false,
      val hasLyricsLookupCompleted: Boolean = false,
-@@ -199,6 +201,7 @@ sealed interface PlayerIntent {
+@@ -189,6 +191,7 @@ sealed interface PlayerIntent {
+     data class SeekTo(val positionMs: Long) : PlayerIntent
+     data class SetVolume(val value: Float) : PlayerIntent
+     data object CycleMode : PlayerIntent
++    data class SetPlaybackMode(val mode: PlaybackMode) : PlayerIntent
+     data class StartSleepTimer(val minutes: Int) : PlayerIntent
+     data object CancelSleepTimer : PlayerIntent
+     data object OpenCastSheet : PlayerIntent
+@@ -199,6 +202,7 @@ sealed interface PlayerIntent {
      data object ClearCastMessage : PlayerIntent
      data object CastNotificationPermissionDenied : PlayerIntent
      data class ExpandedChanged(val value: Boolean) : PlayerIntent
@@ -1724,7 +2523,15 @@ index 0d86686..e426747 100644
      data class QueueVisibilityChanged(val value: Boolean) : PlayerIntent
      data object OpenManualLyricsSearch : PlayerIntent
      data object DismissManualLyricsSearch : PlayerIntent
-@@ -347,6 +350,7 @@ class PlayerStore(
+@@ -335,6 +339,7 @@ class PlayerStore(
+             is PlayerIntent.SeekTo -> seekTo(intent.positionMs)
+             is PlayerIntent.SetVolume -> playbackRepository.setVolume(intent.value)
+             PlayerIntent.CycleMode -> playbackRepository.cycleMode()
++            is PlayerIntent.SetPlaybackMode -> playbackRepository.setMode(it.mode)
+             is PlayerIntent.StartSleepTimer -> startSleepTimer(intent.minutes)
+             PlayerIntent.CancelSleepTimer -> cancelSleepTimer()
+             PlayerIntent.OpenCastSheet -> openCastSheet()
+@@ -347,6 +352,7 @@ class PlayerStore(
                  it.copy(message = "通知权限未开启，后台投屏通知可能不显示。")
              }
              is PlayerIntent.ExpandedChanged -> updateState { it.copy(isExpanded = intent.value) }
@@ -1732,3 +2539,124 @@ index 0d86686..e426747 100644
              is PlayerIntent.QueueVisibilityChanged -> updateState {
                  it.copy(isQueueVisible = intent.value && it.snapshot.currentTrack != null)
              }
+diff --git a/player/core/src/commonTest/kotlin/top/iwesley/lyn/music/feature/player/PlayerStoreLyricsShareTest.kt b/player/core/src/commonTest/kotlin/top/iwesley/lyn/music/feature/player/PlayerStoreLyricsShareTest.kt
+index deae7e0..f748fe2 100644
+--- a/player/core/src/commonTest/kotlin/top/iwesley/lyn/music/feature/player/PlayerStoreLyricsShareTest.kt
++++ b/player/core/src/commonTest/kotlin/top/iwesley/lyn/music/feature/player/PlayerStoreLyricsShareTest.kt
+@@ -1196,6 +1196,7 @@ private class FakeLyricsSharePlaybackRepository(
+     override suspend fun setVolume(volume: Float) = Unit
+ 
+     override suspend fun cycleMode() = Unit
++    override suspend fun setMode(mode: PlaybackMode) = Unit
+ 
+     override suspend fun overrideCurrentTrackArtwork(artworkLocator: String?) = Unit
+ 
+diff --git a/player/core/src/commonTest/kotlin/top/iwesley/lyn/music/feature/player/PlayerStoreQueueTest.kt b/player/core/src/commonTest/kotlin/top/iwesley/lyn/music/feature/player/PlayerStoreQueueTest.kt
+index 2777fee..5edb6c1 100644
+--- a/player/core/src/commonTest/kotlin/top/iwesley/lyn/music/feature/player/PlayerStoreQueueTest.kt
++++ b/player/core/src/commonTest/kotlin/top/iwesley/lyn/music/feature/player/PlayerStoreQueueTest.kt
+@@ -1485,6 +1485,7 @@ private class FakeQueuePlaybackRepository(
+     override suspend fun setVolume(volume: Float) = Unit
+ 
+     override suspend fun cycleMode() = Unit
++    override suspend fun setMode(mode: PlaybackMode) = Unit
+ 
+     override suspend fun overrideCurrentTrackArtwork(artworkLocator: String?) {
+         lastArtworkOverride = artworkLocator
+diff --git a/shared/features/src/commonMain/kotlin/top/iwesley/lyn/music/feature/library/LibraryBrowserUiModels.kt b/shared/features/src/commonMain/kotlin/top/iwesley/lyn/music/feature/library/LibraryBrowserUiModels.kt
+index d91cb79..6948b06 100644
+--- a/shared/features/src/commonMain/kotlin/top/iwesley/lyn/music/feature/library/LibraryBrowserUiModels.kt
++++ b/shared/features/src/commonMain/kotlin/top/iwesley/lyn/music/feature/library/LibraryBrowserUiModels.kt
+@@ -4,6 +4,7 @@ import top.iwesley.lyn.music.core.model.Album
+ import top.iwesley.lyn.music.core.model.Artist
+ import top.iwesley.lyn.music.core.model.PlaylistDetail
+ import top.iwesley.lyn.music.core.model.PlaylistSummary
++import top.iwesley.lyn.music.core.model.PlaybackMode
+ import top.iwesley.lyn.music.core.model.Track
+ import top.iwesley.lyn.music.feature.favorites.FavoritesState
+ import top.iwesley.lyn.music.feature.online.OnlineFavoritesState
+@@ -125,6 +126,8 @@ data class LibraryBrowserActions(
+     val onAlbumClick: (LibraryAlbumUiItem) -> Unit = {},
+     val onArtistClick: (LibraryArtistUiItem) -> Unit = {},
+     val onPlayTracks: (List<Track>, Int) -> Unit = { _, _ -> },
++    val onSetPlaybackMode: (PlaybackMode) -> Unit = {},
++    val onGeneratePlaylist: ((tracks: List<Track>, defaultName: String) -> Unit)? = null,
+ )
+ 
+ data class PlaylistBrowserUiState(
+diff --git a/shared/features/src/commonMain/kotlin/top/iwesley/lyn/music/feature/playlists/PlaylistsStore.kt b/shared/features/src/commonMain/kotlin/top/iwesley/lyn/music/feature/playlists/PlaylistsStore.kt
+index a97fa38..1a0c1c2 100644
+--- a/shared/features/src/commonMain/kotlin/top/iwesley/lyn/music/feature/playlists/PlaylistsStore.kt
++++ b/shared/features/src/commonMain/kotlin/top/iwesley/lyn/music/feature/playlists/PlaylistsStore.kt
+@@ -47,6 +47,8 @@ sealed interface PlaylistsIntent {
+     data class DeletePlaylist(val playlistId: String) : PlaylistsIntent
+     data class CreatePlaylistAndAddTrack(val name: String, val track: Track?) : PlaylistsIntent
+     data class AddTrackToPlaylist(val playlistId: String, val track: Track) : PlaylistsIntent
++    data class CreatePlaylistAndAddTracks(val name: String, val tracks: List<Track>) : PlaylistsIntent
++    data class AddTracksToPlaylist(val playlistId: String, val tracks: List<Track>) : PlaylistsIntent
+     data class ImportPlaylistText(val playlistId: String, val text: String) : PlaylistsIntent
+     data class RemoveTrackFromPlaylist(val playlistId: String, val trackId: String) : PlaylistsIntent
+     data object Refresh : PlaylistsIntent
+@@ -152,6 +154,8 @@ class PlaylistsStore(
+             is PlaylistsIntent.DeletePlaylist -> deletePlaylist(intent.playlistId)
+             is PlaylistsIntent.CreatePlaylistAndAddTrack -> createPlaylistAndMaybeAddTrack(intent.name, intent.track)
+             is PlaylistsIntent.AddTrackToPlaylist -> addTrackToPlaylist(intent.playlistId, intent.track)
++            is PlaylistsIntent.CreatePlaylistAndAddTracks -> createPlaylistAndAddTracks(intent.name, intent.tracks)
++            is PlaylistsIntent.AddTracksToPlaylist -> addTracksToPlaylist(intent.playlistId, intent.tracks)
+             is PlaylistsIntent.ImportPlaylistText -> importPlaylistText(intent.playlistId, intent.text)
+             is PlaylistsIntent.RemoveTrackFromPlaylist -> removeTrackFromPlaylist(intent.playlistId, intent.trackId)
+         }
+@@ -234,6 +238,53 @@ class PlaylistsStore(
+             }
+     }
+ 
++    private suspend fun createPlaylistAndAddTracks(
++        name: String,
++        tracks: List<Track>,
++    ) {
++        playlistRepository.createPlaylist(name)
++            .onSuccess { summary ->
++                observeSelectedPlaylist(summary.id)
++                if (tracks.isEmpty()) {
++                    updateState { it.copy(message = null) }
++                    return@onSuccess
++                }
++                val failedCount = tracks.count { track ->
++                    playlistRepository.addTrackToPlaylist(summary.id, track).isFailure
++                }
++                updateState {
++                    it.copy(
++                        message = failedCount
++                            .takeIf { count -> count > 0 }
++                            ?.let { count -> "$count 首歌曲未能加入歌单。" },
++                    )
++                }
++            }
++            .onFailure { throwable ->
++                updateState { it.copy(message = throwable.message.orEmpty().ifBlank { "歌单创建失败。" }) }
++            }
++    }
++
++    private suspend fun addTracksToPlaylist(
++        playlistId: String,
++        tracks: List<Track>,
++    ) {
++        if (tracks.isEmpty()) {
++            updateState { it.copy(message = null) }
++            return
++        }
++        val failedCount = tracks.count { track ->
++            playlistRepository.addTrackToPlaylist(playlistId, track).isFailure
++        }
++        updateState {
++            it.copy(
++                message = failedCount
++                    .takeIf { count -> count > 0 }
++                    ?.let { count -> "$count 首歌曲未能加入歌单。" },
++            )
++        }
++    }
++
+     private suspend fun importPlaylistText(
+         playlistId: String,
+         text: String,

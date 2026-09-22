@@ -156,7 +156,7 @@ index e25bda7..e46a92f 100644
                      modifier = Modifier
                          .fillMaxSize()
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AppCommonUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AppCommonUi.kt
-index 52cb8a2..128e396 100644
+index 52cb8a2..c3c2173 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AppCommonUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AppCommonUi.kt
 @@ -45,6 +45,7 @@ import androidx.compose.material.icons.rounded.GraphicEq
@@ -302,7 +302,7 @@ index 52cb8a2..128e396 100644
              TrackArtworkThumbnail(
                  artworkLocator = artworkLocator,
                  artworkCacheKey = artworkCacheKey,
-@@ -734,18 +837,28 @@ internal fun ArtistRow(
+@@ -734,18 +837,33 @@ internal fun ArtistRow(
      trackCount: Int?,
      albumCount: Int?,
      onClick: () -> Unit,
@@ -322,7 +322,12 @@ index 52cb8a2..128e396 100644
              verticalAlignment = Alignment.CenterVertically,
              horizontalArrangement = Arrangement.spacedBy(14.dp),
          ) {
-+            if (onPlayAll != null) {
++            if (onPlayAll != null && onPlayOrder != null) {
++                LibraryRowModeButtons(
++                    onShuffle = onPlayAll,
++                    onOrder = onPlayOrder,
++                )
++            } else if (onPlayAll != null) {
 +                LibraryRowPlayButton(
 +                    size = LibraryRowHeight,
 +                    contentDescription = "播放该艺人全部歌曲",
@@ -332,7 +337,7 @@ index 52cb8a2..128e396 100644
              Box(
                  modifier = Modifier
                      .size(52.dp)
-@@ -781,7 +894,7 @@ internal fun ArtistRow(
+@@ -781,7 +899,7 @@ internal fun ArtistRow(
          Box(
              modifier = Modifier
                  .fillMaxWidth()
@@ -341,7 +346,7 @@ index 52cb8a2..128e396 100644
                  .height(1.dp)
                  .background(shellColors.cardBorder),
          )
-@@ -814,6 +927,7 @@ internal fun TrackRow(
+@@ -814,6 +932,7 @@ internal fun TrackRow(
      selected: Boolean = false,
      onSelectionToggle: (() -> Unit)? = null,
      onClick: () -> Unit,
@@ -349,7 +354,7 @@ index 52cb8a2..128e396 100644
  ) {
      val shellColors = mainShellColors
      val showAlbumTitle = showDuration
-@@ -834,11 +948,19 @@ internal fun TrackRow(
+@@ -834,11 +953,19 @@ internal fun TrackRow(
              enableOfflineActions = !selectionMode,
              modifier = Modifier
                  .fillMaxWidth()
@@ -370,7 +375,7 @@ index 52cb8a2..128e396 100644
              if (selectionMode) {
                  Checkbox(
                      checked = selected,
-@@ -2056,6 +2178,7 @@ private fun HalfOutRecordArtwork(
+@@ -2056,6 +2183,7 @@ private fun HalfOutRecordArtwork(
      val recordSize = artworkSize * 0.86f
      val sleeveRadius = artworkSize * 0.035f
      val rotation = remember { Animatable(0f) }
@@ -378,7 +383,7 @@ index 52cb8a2..128e396 100644
      LaunchedEffect(spinning) {
          if (!spinning) return@LaunchedEffect
          while (true) {
-@@ -2064,7 +2187,7 @@ private fun HalfOutRecordArtwork(
+@@ -2064,7 +2192,7 @@ private fun HalfOutRecordArtwork(
              rotation.animateTo(
                  targetValue = start + 360f,
                  animationSpec = tween(
@@ -387,7 +392,7 @@ index 52cb8a2..128e396 100644
                      easing = LinearEasing,
                  ),
              )
-@@ -2142,39 +2265,30 @@ private fun HalfOutRecordDisc(
+@@ -2142,39 +2270,30 @@ private fun HalfOutRecordDisc(
          modifier = modifier,
          contentAlignment = Alignment.Center,
      ) {
@@ -449,7 +454,7 @@ index 52cb8a2..128e396 100644
          Canvas(modifier = Modifier.fillMaxSize()) {
              val radius = min(size.width, size.height) / 2f
              drawCircle(
-@@ -2188,15 +2302,26 @@ private fun HalfOutRecordDisc(
+@@ -2188,15 +2307,26 @@ private fun HalfOutRecordDisc(
                  ),
                  radius = radius,
              )
@@ -479,7 +484,7 @@ index 52cb8a2..128e396 100644
                      )
                  }
              }
-@@ -2223,36 +2348,76 @@ private fun HalfOutRecordDisc(
+@@ -2223,36 +2353,76 @@ private fun HalfOutRecordDisc(
                  radius = radius * 0.052f,
              )
          }
@@ -660,7 +665,7 @@ index 0000000..1bfc08e
 +expect fun readAutoStartOnBoot(context: Any): Boolean
 +expect fun writeAutoStartOnBoot(context: Any, enabled: Boolean)
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
-index ca2a2d3..5d8f99d 100644
+index ca2a2d3..4203d7c 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
 @@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.offset
@@ -717,7 +722,7 @@ index ca2a2d3..5d8f99d 100644
              }
          },
          onPlayTracks = { tracks, index -> onPlayerIntent(PlayerIntent.PlayTracks(tracks, index)) },
-+        onSetPlaybackMode = { mode -> onPlayerIntent(PlayerIntent.SetPlaybackMode(mode)) },
++        onSelectPlayMode = { shuffle -> onPlayerIntent(PlayerIntent.SetPlaybackMode(if (shuffle) PlaybackMode.SHUFFLE else PlaybackMode.ORDER)) },
 +        onGeneratePlaylist = onGeneratePlaylist,
      )
      LibraryBrowserTab(
@@ -726,7 +731,7 @@ index ca2a2d3..5d8f99d 100644
          },
          onLoadMoreTracks = { onOnlineIntent(OnlineFavoritesIntent.LoadMore) },
          onPlayTracks = { tracks, index -> onPlayerIntent(PlayerIntent.PlayTracks(tracks, index)) },
-+        onSetPlaybackMode = { mode -> onPlayerIntent(PlayerIntent.SetPlaybackMode(mode)) },
++        onSelectPlayMode = { shuffle -> onPlayerIntent(PlayerIntent.SetPlaybackMode(if (shuffle) PlaybackMode.SHUFFLE else PlaybackMode.ORDER)) },
      )
      LibraryBrowserTab(
          state = browserState,
@@ -756,13 +761,13 @@ index ca2a2d3..5d8f99d 100644
                      onSelectRootView = ::selectRootView,
                      onPlayAllTracks = {
                          if (visibleTracks.isNotEmpty()) {
-+                            actions.onSetPlaybackMode(PlaybackMode.SHUFFLE)
++                            actions.onSelectPlayMode(true)
 +                            actions.onPlayTracks(visibleTracks, randomMiddleStartIndex(visibleTracks.size))
 +                        }
 +                    },
 +                    onPlayOrderTracks = {
 +                        if (visibleTracks.isNotEmpty()) {
-+                            actions.onSetPlaybackMode(PlaybackMode.ORDER)
++                            actions.onSelectPlayMode(false)
                              actions.onPlayTracks(visibleTracks, 0)
                          }
                      },
@@ -774,11 +779,11 @@ index ca2a2d3..5d8f99d 100644
 +                        LibraryDetailPlayAllButton(
 +                            enabled = albumTracks.isNotEmpty(),
 +                            onPlayAll = {
-+                                actions.onSetPlaybackMode(PlaybackMode.SHUFFLE)
++                                actions.onSelectPlayMode(true)
 +                                actions.onPlayTracks(albumTracks, randomMiddleStartIndex(albumTracks.size))
 +                            },
 +                            onPlayOrder = {
-+                                actions.onSetPlaybackMode(PlaybackMode.ORDER)
++                                actions.onSelectPlayMode(false)
 +                                actions.onPlayTracks(albumTracks, 0)
 +                            },
 +                        )
@@ -821,11 +826,11 @@ index ca2a2d3..5d8f99d 100644
 +                        LibraryDetailPlayAllButton(
 +                            enabled = selectedFolderTracks.isNotEmpty(),
 +                            onPlayAll = {
-+                                actions.onSetPlaybackMode(PlaybackMode.SHUFFLE)
++                                actions.onSelectPlayMode(true)
 +                                actions.onPlayTracks(selectedFolderTracks, randomMiddleStartIndex(selectedFolderTracks.size))
 +                            },
 +                            onPlayOrder = {
-+                                actions.onSetPlaybackMode(PlaybackMode.ORDER)
++                                actions.onSelectPlayMode(false)
 +                                actions.onPlayTracks(selectedFolderTracks, 0)
 +                            },
 +                        )
@@ -863,11 +868,11 @@ index ca2a2d3..5d8f99d 100644
 +                                    LibraryDetailPlayAllButton(
 +                                        enabled = visibleTracks.isNotEmpty(),
 +                                        onPlayAll = {
-+                                            actions.onSetPlaybackMode(PlaybackMode.SHUFFLE)
++                                            actions.onSelectPlayMode(true)
 +                                            actions.onPlayTracks(visibleTracks, randomMiddleStartIndex(visibleTracks.size))
 +                                        },
 +                                        onPlayOrder = {
-+                                            actions.onSetPlaybackMode(PlaybackMode.ORDER)
++                                            actions.onSelectPlayMode(false)
 +                                            actions.onPlayTracks(visibleTracks, 0)
 +                                        },
 +                                    )
@@ -899,14 +904,14 @@ index ca2a2d3..5d8f99d 100644
 +                                        onPlayAll = {
 +                                            val albumTracks = tracksByAlbumId[album.id].orEmpty()
 +                                            if (albumTracks.isNotEmpty()) {
-+                                                actions.onSetPlaybackMode(PlaybackMode.SHUFFLE)
++                                                actions.onSelectPlayMode(true)
 +                                                actions.onPlayTracks(albumTracks, randomMiddleStartIndex(albumTracks.size))
 +                                            }
 +                                        },
 +                                        onPlayOrder = {
 +                                            val albumTracks = tracksByAlbumId[album.id].orEmpty()
 +                                            if (albumTracks.isNotEmpty()) {
-+                                                actions.onSetPlaybackMode(PlaybackMode.ORDER)
++                                                actions.onSelectPlayMode(false)
 +                                                actions.onPlayTracks(albumTracks, 0)
 +                                            }
 +                                        },
@@ -920,14 +925,14 @@ index ca2a2d3..5d8f99d 100644
 +                                        onPlayAll = {
 +                                            val artistTracks = tracksByArtistId[artist.id].orEmpty()
 +                                            if (artistTracks.isNotEmpty()) {
-+                                                actions.onSetPlaybackMode(PlaybackMode.SHUFFLE)
++                                                actions.onSelectPlayMode(true)
 +                                                actions.onPlayTracks(artistTracks, randomMiddleStartIndex(artistTracks.size))
 +                                            }
 +                                        },
 +                                        onPlayOrder = {
 +                                            val artistTracks = tracksByArtistId[artist.id].orEmpty()
 +                                            if (artistTracks.isNotEmpty()) {
-+                                                actions.onSetPlaybackMode(PlaybackMode.ORDER)
++                                                actions.onSelectPlayMode(false)
 +                                                actions.onPlayTracks(artistTracks, 0)
 +                                            }
 +                                        },
@@ -941,7 +946,7 @@ index ca2a2d3..5d8f99d 100644
 +                                        onPlayAll = {
 +                                            val folderTracks =
 +                                                folderTree.collectTracksRecursively(folder.key)
-+                                            actions.onSetPlaybackMode(PlaybackMode.SHUFFLE)
++                                            actions.onSelectPlayMode(true)
 +                                            actions.onPlayTracks(
 +                                                folderTracks,
 +                                                randomMiddleStartIndex(folderTracks.size),
@@ -950,13 +955,45 @@ index ca2a2d3..5d8f99d 100644
 +                                        onPlayOrder = {
 +                                            val folderTracks =
 +                                                folderTree.collectTracksRecursively(folder.key)
-+                                            actions.onSetPlaybackMode(PlaybackMode.ORDER)
++                                            actions.onSelectPlayMode(false)
 +                                            actions.onPlayTracks(folderTracks, 0)
 +                                        },
                                      )
                                  }
                              }
-@@ -1962,6 +2129,7 @@ private fun CompactLibraryHeroCard(
+@@ -1860,6 +2027,7 @@ private fun LibraryRootSelector(
+     tracksStatFocusRequester: FocusRequester,
+     onSelectRootView: (LibraryBrowserRootView) -> Unit,
+     onPlayAllTracks: () -> Unit,
++    onPlayOrderTracks: (() -> Unit)? = null,
+ ) {
+     when (model.style) {
+         LibraryRootSelectorStyle.Default -> DefaultLibraryRootSelector(
+@@ -1877,6 +2045,7 @@ private fun LibraryRootSelector(
+             tracksStatFocusRequester = tracksStatFocusRequester,
+             onSelectRootView = onSelectRootView,
+             onPlayAllTracks = onPlayAllTracks,
++            onPlayOrderTracks = onPlayOrderTracks,
+         )
+     }
+ }
+@@ -1921,6 +2090,7 @@ private fun CompactLibraryRootSelector(
+     tracksStatFocusRequester: FocusRequester,
+     onSelectRootView: (LibraryBrowserRootView) -> Unit,
+     onPlayAllTracks: () -> Unit,
++    onPlayOrderTracks: (() -> Unit)? = null,
+ ) {
+     val heroItem = model.heroItem ?: return
+     Column(
+@@ -1935,6 +2105,7 @@ private fun CompactLibraryRootSelector(
+             playAllEnabled = model.playAllEnabled,
+             onSelectTracks = { onSelectRootView(heroItem.rootView) },
+             onPlayAllTracks = onPlayAllTracks,
++            onPlayOrderTracks = onPlayOrderTracks,
+         )
+         Row(
+             modifier = Modifier.fillMaxWidth(),
+@@ -1962,6 +2133,7 @@ private fun CompactLibraryHeroCard(
      playAllEnabled: Boolean,
      onSelectTracks: () -> Unit,
      onPlayAllTracks: () -> Unit,
@@ -964,7 +1001,7 @@ index ca2a2d3..5d8f99d 100644
  ) {
      val containerColor = if (selected) {
          MaterialTheme.colorScheme.secondary
-@@ -2016,20 +2184,66 @@ private fun CompactLibraryHeroCard(
+@@ -2016,20 +2188,66 @@ private fun CompactLibraryHeroCard(
                  overflow = TextOverflow.Ellipsis,
              )
          }
@@ -1045,11 +1082,12 @@ index ca2a2d3..5d8f99d 100644
          }
      }
  }
-@@ -2119,18 +2333,32 @@ private fun compactLibraryRootIcon(
+@@ -2119,18 +2337,33 @@ private fun compactLibraryRootIcon(
  private fun FolderRow(
      folder: LibraryFolderNode,
      onClick: () -> Unit,
 +    onPlayAll: (() -> Unit)? = null,
++    onPlayOrder: (() -> Unit)? = null,
  ) {
      val shellColors = mainShellColors
      Column(modifier = Modifier.fillMaxWidth()) {
@@ -1060,7 +1098,7 @@ index ca2a2d3..5d8f99d 100644
                  .clip(RoundedCornerShape(18.dp))
                  .clickable(onClick = onClick)
 -                .padding(horizontal = 14.dp, vertical = 12.dp),
-+                .padding(start = if (onPlayAll == null) 14.dp else 0.dp, end = 14.dp),
++                .padding(start = if (onPlayAll == null && onPlayOrder == null) 14.dp else 0.dp, end = 14.dp),
              verticalAlignment = Alignment.CenterVertically,
              horizontalArrangement = Arrangement.spacedBy(14.dp),
          ) {
@@ -1079,7 +1117,7 @@ index ca2a2d3..5d8f99d 100644
              Box(
                  modifier = Modifier
                      .size(52.dp)
-@@ -2802,6 +3030,59 @@ internal fun SourcesTab(
+@@ -2802,6 +3035,59 @@ internal fun SourcesTab(
                  title = "导入来源",
                  subtitle = "本地文件夹原地索引，Samba、WebDAV、Navidrome、Subsonic/OpenSubsonic 与 Emby 作为远程音乐库。"
              )
@@ -1139,7 +1177,7 @@ index ca2a2d3..5d8f99d 100644
              state.message?.let { message ->
                  BannerCard(message = message, onDismiss = { onImportIntent(ImportIntent.ClearMessage) })
              }
-@@ -3889,3 +4170,117 @@ internal fun remoteSourceEditorTrackCountLabel(
+@@ -3889,3 +4175,117 @@ internal fun remoteSourceEditorTrackCountLabel(
  private fun isMobileSourcesPlatform(platform: PlatformDescriptor): Boolean {
      return platform.name == "Android" || platform.name == "iPhone / iPad"
  }
@@ -2409,7 +2447,7 @@ index 0000000..6935c00
 +actual fun readAutoStartOnBoot(context: Any): Boolean = false
 +actual fun writeAutoStartOnBoot(context: Any, enabled: Boolean) = Unit
 diff --git a/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/data/repository/PlaybackRepositories.kt b/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/data/repository/PlaybackRepositories.kt
-index 332d1e4..8f89758 100644
+index 332d1e4..ef3682c 100644
 --- a/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/data/repository/PlaybackRepositories.kt
 +++ b/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/data/repository/PlaybackRepositories.kt
 @@ -87,6 +87,7 @@ interface PlaybackRepository {
@@ -2425,7 +2463,7 @@ index 332d1e4..8f89758 100644
      private val systemPlaybackControlsPlatformService: SystemPlaybackControlsPlatformService = UnsupportedSystemPlaybackControlsPlatformService,
      private val logger: DiagnosticLogger = NoopDiagnosticLogger,
 -    private val shuffleRandom: Random = Random.Default,
-+    private val shuffleRandom: Random = Random(currentTimeMillis()),
++    private val shuffleRandom: Random = Random(now()),
      hydrateImmediately: Boolean = true,
      private val playbackStatsReporter: PlaybackStatsReporter = NoopPlaybackStatsReporter,
      private val currentTimeMillis: () -> Long = ::now,
@@ -2495,7 +2533,7 @@ index 332d1e4..8f89758 100644
                      startPositionMs = persisted.positionMs,
                  )
 diff --git a/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/feature/player/PlayerStore.kt b/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/feature/player/PlayerStore.kt
-index 0d86686..8aba229 100644
+index 0d86686..c1d36c2 100644
 --- a/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/feature/player/PlayerStore.kt
 +++ b/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/feature/player/PlayerStore.kt
 @@ -80,6 +80,8 @@ fun normalizeSleepTimerMinutes(minutes: Int): Int? {
@@ -2527,7 +2565,7 @@ index 0d86686..8aba229 100644
              is PlayerIntent.SeekTo -> seekTo(intent.positionMs)
              is PlayerIntent.SetVolume -> playbackRepository.setVolume(intent.value)
              PlayerIntent.CycleMode -> playbackRepository.cycleMode()
-+            is PlayerIntent.SetPlaybackMode -> playbackRepository.setMode(it.mode)
++            is PlayerIntent.SetPlaybackMode -> playbackRepository.setMode(intent.mode)
              is PlayerIntent.StartSleepTimer -> startSleepTimer(intent.minutes)
              PlayerIntent.CancelSleepTimer -> cancelSleepTimer()
              PlayerIntent.OpenCastSheet -> openCastSheet()
@@ -2564,22 +2602,14 @@ index 2777fee..5edb6c1 100644
      override suspend fun overrideCurrentTrackArtwork(artworkLocator: String?) {
          lastArtworkOverride = artworkLocator
 diff --git a/shared/features/src/commonMain/kotlin/top/iwesley/lyn/music/feature/library/LibraryBrowserUiModels.kt b/shared/features/src/commonMain/kotlin/top/iwesley/lyn/music/feature/library/LibraryBrowserUiModels.kt
-index d91cb79..6948b06 100644
+index d91cb79..3fcf3cf 100644
 --- a/shared/features/src/commonMain/kotlin/top/iwesley/lyn/music/feature/library/LibraryBrowserUiModels.kt
 +++ b/shared/features/src/commonMain/kotlin/top/iwesley/lyn/music/feature/library/LibraryBrowserUiModels.kt
-@@ -4,6 +4,7 @@ import top.iwesley.lyn.music.core.model.Album
- import top.iwesley.lyn.music.core.model.Artist
- import top.iwesley.lyn.music.core.model.PlaylistDetail
- import top.iwesley.lyn.music.core.model.PlaylistSummary
-+import top.iwesley.lyn.music.core.model.PlaybackMode
- import top.iwesley.lyn.music.core.model.Track
- import top.iwesley.lyn.music.feature.favorites.FavoritesState
- import top.iwesley.lyn.music.feature.online.OnlineFavoritesState
-@@ -125,6 +126,8 @@ data class LibraryBrowserActions(
+@@ -125,6 +125,8 @@ data class LibraryBrowserActions(
      val onAlbumClick: (LibraryAlbumUiItem) -> Unit = {},
      val onArtistClick: (LibraryArtistUiItem) -> Unit = {},
      val onPlayTracks: (List<Track>, Int) -> Unit = { _, _ -> },
-+    val onSetPlaybackMode: (PlaybackMode) -> Unit = {},
++    val onSelectPlayMode: (shuffle: Boolean) -> Unit = {},
 +    val onGeneratePlaylist: ((tracks: List<Track>, defaultName: String) -> Unit)? = null,
  )
  

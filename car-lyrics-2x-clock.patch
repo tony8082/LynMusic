@@ -132,7 +132,7 @@ index 0000000..c355efa
 +        .apply()
 +}
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/App.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/App.kt
-index e25bda7..e46a92f 100644
+index e25bda7..2c65a36 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/App.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/App.kt
 @@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
@@ -151,7 +151,7 @@ index e25bda7..e46a92f 100644
  import kotlinx.coroutines.Job
  import kotlinx.coroutines.cancelAndJoin
  import kotlinx.coroutines.flow.combine
-@@ -711,6 +713,26 @@ fun App(
+@@ -711,6 +713,35 @@ fun App(
                  val mobilePortraitMiniPlayer = layoutProfile.isCompactLayout
                  val shellColors = mainShellColors
                  val effectivePlayerSnapshot = playerState.effectiveSnapshot
@@ -163,6 +163,15 @@ index e25bda7..e46a92f 100644
 +                val idlePlaying = playerState.effectiveSnapshot.isPlaying
 +                LaunchedEffect(idleTrackId, idlePlaying, isAutomotiveIdle) {
 +                    if (!isAutomotiveIdle || idleTrackId == null || !idlePlaying) return@LaunchedEffect
++                    // v19 修复（需求1）：恢复 v13 的「最大化页不被打扰」语义。
++                    // v13 的原逻辑里 isPureModeRequested 一旦置 true 就只 return、从不复位，所以跳到下一曲时
++                    // 界面纹丝不动；v14 把这段搬到全局后，effect 重启的第一件事是 EnterPureMode(false)，
++                    // 而跳曲（手动切歌 / 自动播完切歌）必然改变 idleTrackId → effect 重启 → 纯净态被关掉，
++                    // 最大化页瞬间闪回带控件的普通播放页，20 秒后又变回纯净，表现为「界面跳来跳去」。
++                    // 现修正：已处于「最大化 + 纯净」态时，本 effect 直接返回，不对播放页状态做任何改动。
++                    if (currentPlayerStateForIdle.isExpanded && currentPlayerStateForIdle.pureModeRequested) {
++                        return@LaunchedEffect
++                    }
 +                    // 本次空闲周期起点先复位纯净请求，使从普通态开始计时
 +                    component.playerStore.dispatch(PlayerIntent.EnterPureMode(false))
 +                    delay(20_000L)
@@ -688,7 +697,7 @@ index 0000000..1bfc08e
 +expect fun readAutoStartOnBoot(context: Any): Boolean
 +expect fun writeAutoStartOnBoot(context: Any, enabled: Boolean)
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
-index ca2a2d3..ca18bab 100644
+index ca2a2d3..444447a 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
 @@ -90,10 +90,12 @@ import androidx.compose.ui.text.input.TextFieldValue
@@ -820,10 +829,25 @@ index ca2a2d3..ca18bab 100644
                      item {
                          SectionTitle(title = "歌曲", subtitle = "当前专辑下的可见歌曲。")
                      }
-@@ -1489,6 +1551,17 @@ private fun LibraryBrowserTab(
+@@ -1489,6 +1551,32 @@ private fun LibraryBrowserTab(
                              },
                          )
                      }
++                    // v19（需求4）：歌手详情页补「播放全部」随|顺按钮。
++                    // 此前这里只有"生成歌单"，点进歌手后看不到【随|顺】，与专辑/文件夹详情页交互不一致。
++                    item {
++                        LibraryDetailPlayAllButton(
++                            enabled = artistTracks.isNotEmpty(),
++                            onPlayAll = {
++                                actions.onSelectPlayMode(true)
++                                actions.onPlayTracks(artistTracks, randomMiddleStartIndex(artistTracks.size))
++                            },
++                            onPlayOrder = {
++                                actions.onSelectPlayMode(false)
++                                actions.onPlayTracks(artistTracks, 0)
++                            },
++                        )
++                    }
 +                    if (!state.isOnline && artistTracks.isNotEmpty()) {
 +                        actions.onGeneratePlaylist?.let { generatePlaylist ->
 +                            item {
@@ -838,7 +862,7 @@ index ca2a2d3..ca18bab 100644
                      item {
                          SectionTitle(
                              title = "专辑",
-@@ -1583,6 +1656,28 @@ private fun LibraryBrowserTab(
+@@ -1583,14 +1671,53 @@ private fun LibraryBrowserTab(
                              artworkCacheKey = selectedFolderTracks.firstOrNull()?.let(::trackArtworkCacheKey),
                          )
                      }
@@ -867,20 +891,32 @@ index ca2a2d3..ca18bab 100644
                      if (selectedFolderChildren.isNotEmpty()) {
                          item {
                              SectionTitle(title = "文件夹", subtitle = "当前目录下的子文件夹。")
-@@ -1591,6 +1686,12 @@ private fun LibraryBrowserTab(
+                         }
+                         items(selectedFolderChildren, key = { it.key.stableId }) { folder ->
++                            // v19（需求4）：补 onPlayOrder 并把播放模式一并设置，
++                            // 否则该行会退化成单个循环播放按钮，且沿用全局随机模式导致"顺"无效。
                              FolderRow(
                                  folder = folder,
                                  onClick = { selectFolder(folder) },
 +                                onPlayAll = {
++                                    val folderTracks =
++                                        folderTree.collectTracksRecursively(folder.key)
++                                    actions.onSelectPlayMode(true)
 +                                    actions.onPlayTracks(
-+                                        folderTree.collectTracksRecursively(folder.key),
-+                                        0,
++                                        folderTracks,
++                                        randomMiddleStartIndex(folderTracks.size),
 +                                    )
++                                },
++                                onPlayOrder = {
++                                    val folderTracks =
++                                        folderTree.collectTracksRecursively(folder.key)
++                                    actions.onSelectPlayMode(false)
++                                    actions.onPlayTracks(folderTracks, 0)
 +                                },
                              )
                          }
                      }
-@@ -1682,6 +1783,28 @@ private fun LibraryBrowserTab(
+@@ -1682,6 +1809,28 @@ private fun LibraryBrowserTab(
                      } else {
                          when (rootView) {
                              LibraryBrowserRootView.Tracks -> {
@@ -909,7 +945,7 @@ index ca2a2d3..ca18bab 100644
                                  itemsIndexed(
                                      state.tracks,
                                      key = { _, item -> item.id }) { index, trackItem ->
-@@ -1704,6 +1827,7 @@ private fun LibraryBrowserTab(
+@@ -1704,6 +1853,7 @@ private fun LibraryBrowserTab(
                                          onClick = {
                                              actions.onPlayTracks(visibleTracks, index)
                                          },
@@ -917,7 +953,7 @@ index ca2a2d3..ca18bab 100644
                                      )
                                  }
                                  if (state.capabilities.canLoadMoreTracks) {
-@@ -1733,6 +1857,20 @@ private fun LibraryBrowserTab(
+@@ -1733,6 +1883,20 @@ private fun LibraryBrowserTab(
                                              actions.onAlbumClick(albumItem)
                                              selectedAlbumId = album.id
                                          },
@@ -938,7 +974,7 @@ index ca2a2d3..ca18bab 100644
                                      )
                                  }
                                  if (state.capabilities.canLoadMoreAlbums) {
-@@ -1759,6 +1897,20 @@ private fun LibraryBrowserTab(
+@@ -1759,6 +1923,20 @@ private fun LibraryBrowserTab(
                                              selectedArtistId = artist.id
                                              selectedAlbumId = null
                                          },
@@ -959,7 +995,7 @@ index ca2a2d3..ca18bab 100644
                                      )
                                  }
                                  if (state.capabilities.canLoadMoreArtists) {
-@@ -1777,6 +1929,21 @@ private fun LibraryBrowserTab(
+@@ -1777,6 +1955,21 @@ private fun LibraryBrowserTab(
                                      FolderRow(
                                          folder = folder,
                                          onClick = { selectFolder(folder) },
@@ -981,7 +1017,7 @@ index ca2a2d3..ca18bab 100644
                                      )
                                  }
                              }
-@@ -1860,6 +2027,7 @@ private fun LibraryRootSelector(
+@@ -1860,6 +2053,7 @@ private fun LibraryRootSelector(
      tracksStatFocusRequester: FocusRequester,
      onSelectRootView: (LibraryBrowserRootView) -> Unit,
      onPlayAllTracks: () -> Unit,
@@ -989,7 +1025,7 @@ index ca2a2d3..ca18bab 100644
  ) {
      when (model.style) {
          LibraryRootSelectorStyle.Default -> DefaultLibraryRootSelector(
-@@ -1877,6 +2045,7 @@ private fun LibraryRootSelector(
+@@ -1877,6 +2071,7 @@ private fun LibraryRootSelector(
              tracksStatFocusRequester = tracksStatFocusRequester,
              onSelectRootView = onSelectRootView,
              onPlayAllTracks = onPlayAllTracks,
@@ -997,7 +1033,7 @@ index ca2a2d3..ca18bab 100644
          )
      }
  }
-@@ -1921,6 +2090,7 @@ private fun CompactLibraryRootSelector(
+@@ -1921,6 +2116,7 @@ private fun CompactLibraryRootSelector(
      tracksStatFocusRequester: FocusRequester,
      onSelectRootView: (LibraryBrowserRootView) -> Unit,
      onPlayAllTracks: () -> Unit,
@@ -1005,7 +1041,7 @@ index ca2a2d3..ca18bab 100644
  ) {
      val heroItem = model.heroItem ?: return
      Column(
-@@ -1935,6 +2105,7 @@ private fun CompactLibraryRootSelector(
+@@ -1935,6 +2131,7 @@ private fun CompactLibraryRootSelector(
              playAllEnabled = model.playAllEnabled,
              onSelectTracks = { onSelectRootView(heroItem.rootView) },
              onPlayAllTracks = onPlayAllTracks,
@@ -1013,7 +1049,7 @@ index ca2a2d3..ca18bab 100644
          )
          Row(
              modifier = Modifier.fillMaxWidth(),
-@@ -1962,6 +2133,7 @@ private fun CompactLibraryHeroCard(
+@@ -1962,6 +2159,7 @@ private fun CompactLibraryHeroCard(
      playAllEnabled: Boolean,
      onSelectTracks: () -> Unit,
      onPlayAllTracks: () -> Unit,
@@ -1021,7 +1057,7 @@ index ca2a2d3..ca18bab 100644
  ) {
      val containerColor = if (selected) {
          MaterialTheme.colorScheme.secondary
-@@ -2016,20 +2188,66 @@ private fun CompactLibraryHeroCard(
+@@ -2016,20 +2214,66 @@ private fun CompactLibraryHeroCard(
                  overflow = TextOverflow.Ellipsis,
              )
          }
@@ -1102,7 +1138,7 @@ index ca2a2d3..ca18bab 100644
          }
      }
  }
-@@ -2119,18 +2337,33 @@ private fun compactLibraryRootIcon(
+@@ -2119,18 +2363,33 @@ private fun compactLibraryRootIcon(
  private fun FolderRow(
      folder: LibraryFolderNode,
      onClick: () -> Unit,
@@ -1137,7 +1173,7 @@ index ca2a2d3..ca18bab 100644
              Box(
                  modifier = Modifier
                      .size(52.dp)
-@@ -2802,6 +3035,59 @@ internal fun SourcesTab(
+@@ -2802,6 +3061,59 @@ internal fun SourcesTab(
                  title = "导入来源",
                  subtitle = "本地文件夹原地索引，Samba、WebDAV、Navidrome、Subsonic/OpenSubsonic 与 Emby 作为远程音乐库。"
              )
@@ -1197,7 +1233,7 @@ index ca2a2d3..ca18bab 100644
              state.message?.let { message ->
                  BannerCard(message = message, onDismiss = { onImportIntent(ImportIntent.ClearMessage) })
              }
-@@ -3889,3 +4175,117 @@ internal fun remoteSourceEditorTrackCountLabel(
+@@ -3889,3 +4201,117 @@ internal fun remoteSourceEditorTrackCountLabel(
  private fun isMobileSourcesPlatform(platform: PlatformDescriptor): Boolean {
      return platform.name == "Android" || platform.name == "iPhone / iPad"
  }
@@ -1687,7 +1723,7 @@ index 1e5fc1c..b5ff8a4 100644
              MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
                  Row(
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
-index 1aa0ba8..5a64a14 100644
+index 1aa0ba8..ce6fa91 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 @@ -3,6 +3,7 @@ package top.iwesley.lyn.music.automotive
@@ -1698,7 +1734,15 @@ index 1aa0ba8..5a64a14 100644
  import androidx.compose.foundation.Canvas
  import androidx.compose.foundation.clickable
  import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-@@ -34,11 +35,12 @@ import androidx.compose.material.icons.rounded.SkipNext
+@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.size
+ import androidx.compose.foundation.layout.width
+ import androidx.compose.material.icons.Icons
+ import androidx.compose.material.icons.automirrored.rounded.QueueMusic
++import androidx.compose.material.icons.rounded.Album
+ import androidx.compose.material.icons.rounded.Favorite
+ import androidx.compose.material.icons.rounded.FavoriteBorder
+ import androidx.compose.material.icons.rounded.Fullscreen
+@@ -34,11 +36,12 @@ import androidx.compose.material.icons.rounded.SkipNext
  import androidx.compose.material.icons.rounded.SkipPrevious
  import androidx.compose.material3.Icon
  import androidx.compose.material3.IconButton
@@ -1712,7 +1756,7 @@ index 1aa0ba8..5a64a14 100644
  import androidx.compose.runtime.getValue
  import androidx.compose.runtime.mutableStateOf
  import androidx.compose.runtime.remember
-@@ -60,10 +62,15 @@ import androidx.compose.ui.input.pointer.pointerInput
+@@ -60,10 +63,15 @@ import androidx.compose.ui.input.pointer.pointerInput
  import androidx.compose.ui.platform.LocalDensity
  import androidx.compose.ui.text.TextStyle
  import androidx.compose.ui.text.font.FontWeight
@@ -1728,7 +1772,36 @@ index 1aa0ba8..5a64a14 100644
  import kotlin.math.roundToInt
  import kotlin.math.roundToLong
  import top.iwesley.lyn.music.ArtworkDecodeSize
-@@ -122,9 +129,14 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
+@@ -102,6 +110,28 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
+ ) {
+     val currentIsPureMode by rememberUpdatedState(isPureMode)
+     val currentOnPureModeChanged by rememberUpdatedState(onPureModeChanged)
++    // v19（需求3）：最大化页底栏「专辑」按钮的跳转目标（一键去听当前歌曲所在整张专辑）。
++    // 推导逻辑与播放区那行「歌手 · 专辑」完全同源，保证两处指向同一张专辑；
++    // 在线来源走在线目标、本地曲库走本地目标。专辑信息缺失时返回 null，按钮自动隐藏。
++    val pureModeAlbumNavigationTarget = remember(
++        state.snapshot.currentDisplayAlbumTitle,
++        state.snapshot.currentDisplayArtistName,
++        track.albumTitle,
++        track.artistName,
++        track.albumId,
++        onlineNavigationSourceId,
++    ) {
++        val targets = if (onlineNavigationSourceId != null) {
++            deriveOnlinePlaybackLibraryNavigationTargets(
++                snapshot = state.snapshot,
++                track = track,
++                sourceId = onlineNavigationSourceId,
++            )
++        } else {
++            derivePlaybackLibraryNavigationTargets(state.snapshot, track)
++        }
++        targets.albumTarget
++    }
+     BoxWithConstraints(
+         modifier = modifier
+             .fillMaxSize()
+@@ -122,9 +152,14 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
          Row(
              modifier = Modifier
                  .fillMaxSize()
@@ -1744,17 +1817,19 @@ index 1aa0ba8..5a64a14 100644
                  ),
              horizontalArrangement = Arrangement.spacedBy(frameLayout.paneGap),
              verticalAlignment = Alignment.CenterVertically,
-@@ -154,6 +166,9 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
+@@ -154,6 +189,11 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
                  state = state,
                  track = track,
                  onPlayerIntent = onPlayerIntent,
 +                isPureMode = isPureMode,
 +                onPureModeChanged = onPureModeChanged,
 +                onOpenQueue = onOpenQueue,
++                albumNavigationTarget = pureModeAlbumNavigationTarget,
++                onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
                  modifier = Modifier
                      .weight(AutomotiveLyricsPaneWeight)
                      .fillMaxHeight(),
-@@ -180,6 +195,7 @@ private fun AutomotivePlaybackPane(
+@@ -180,6 +220,7 @@ private fun AutomotivePlaybackPane(
      controlsReferenceMaxWidth: Dp,
      controlsReferenceMaxHeight: Dp,
      onPureModeChanged: (Boolean) -> Unit,
@@ -1762,7 +1837,7 @@ index 1aa0ba8..5a64a14 100644
      modifier: Modifier = Modifier,
  ) {
      val snapshot = state.snapshot
-@@ -194,14 +210,19 @@ private fun AutomotivePlaybackPane(
+@@ -194,14 +235,19 @@ private fun AutomotivePlaybackPane(
          val pureModePresentation = resolveAutomotivePureModePresentation(isPureMode)
          val topControlButtonSize = resolveAutomotiveTopControlButtonSize(maxWidth)
          val topControlIconScale = topControlButtonSize / AutomotiveTopControlsSlotHeight
@@ -1784,7 +1859,7 @@ index 1aa0ba8..5a64a14 100644
              ) {
                  if (pureModePresentation.showTopControls) {
                      Row(
-@@ -214,24 +235,61 @@ private fun AutomotivePlaybackPane(
+@@ -214,24 +260,61 @@ private fun AutomotivePlaybackPane(
                              contentDescription = "收起播放页",
                              onClick = { onPlayerIntent(PlayerIntent.ExpandedChanged(false)) },
                              buttonSize = topControlButtonSize,
@@ -1851,7 +1926,7 @@ index 1aa0ba8..5a64a14 100644
                              )
                          }
                      }
-@@ -249,14 +307,16 @@ private fun AutomotivePlaybackPane(
+@@ -249,14 +332,16 @@ private fun AutomotivePlaybackPane(
                  onlineNavigationSourceId = onlineNavigationSourceId,
                  onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
                  onPlayerIntent = onPlayerIntent,
@@ -1869,7 +1944,7 @@ index 1aa0ba8..5a64a14 100644
                  contentAlignment = Alignment.Center,
              ) {
                  if (pureModePresentation.showPlaybackControls) {
-@@ -286,19 +346,56 @@ private fun AutomotiveTrackAndProgress(
+@@ -286,19 +371,63 @@ private fun AutomotiveTrackAndProgress(
      onlineNavigationSourceId: String?,
      onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -1887,31 +1962,38 @@ index 1aa0ba8..5a64a14 100644
          )
 -        val compactVertical = layout.compactVertical
 +        val compactVertical = baseLayout.compactVertical
-+        // v17：封面尺寸取「三个上限」里的最小值 ——
-+        //   ① maxWidth × 0.92        横向不越界
-+        //   ② maxHeight × 0.76       v13/v15 的原始比例，保证封面观感与旧版一致（1280×720 下 480dp）
-+        //   ③ maxHeight − 文字区 − 间距 − 底部安全边距
-+        //                            v16 新增的防溢出安全网：小屏或大字号下自动把封面收小，
-+        //                            保证「歌名 + 歌手·专辑」两行永远进安全区（v13 底行被切即因缺这一项）
-+        // v16 一度只留 ③ 并把结果锁死在 216dp，导致封面上车后明显缩水（实拍确认），本版修正。
++        // v19（需求2）：最大化页改用「固定值」版面，每次启动完全一致。
++        // 背景：v17/v16 的封面公式依赖 BoxWithConstraints 的实测高度，而实测高度会随车机
++        // 状态栏/导航栏显隐变化 → 封面忽大忽小、底行余量也跟着变（即伍所反馈的"截断高度会变化"）。
++        // 现在三处全部固定：
++        //   ① 封面 480dp 定值（不再使用 maxHeight × 0.76 这条波动来源）
++        //   ② 文字块字号钉死为大号（useCompactText=false），高度＝固定字号算出的常量
++        //   ③ 底部安全距 20dp、封面↔歌名 6dp、歌名↔歌手·专辑 4dp、文字块上提 10dp
++        // 只保留一个安全兜底：实测可用高度装不下时按需收小封面，避免小屏真的溢出。
 +        val density = LocalDensity.current
++        // 最大化页文字一律用大号，与实测高度解耦；普通播放页仍按高度自适应（保持原行为）
++        val useCompactText = compactVertical && !isPureMode
 +        val pureTitleLineHeight = (
-+            if (compactVertical) AutomotiveTypography.titleLarge else AutomotiveTypography.headlineMedium
++            if (useCompactText) AutomotiveTypography.titleLarge else AutomotiveTypography.headlineMedium
 +            ).lineHeight * carUiScale
 +        val pureMetadataLineHeight = (
-+            if (compactVertical) AutomotiveTypography.bodyLarge else AutomotiveTypography.titleMedium
++            if (useCompactText) AutomotiveTypography.bodyLarge else AutomotiveTypography.titleMedium
 +            ).lineHeight * carUiScale
 +        val pureTextBlockHeight = with(density) {
 +            pureTitleLineHeight.toDp() + pureMetadataLineHeight.toDp()
 +        } + AutomotivePureModeMetadataGap
 +        val layout = if (isPureMode) {
++            // 兜底上限：可用高度 − 文字块 − 三个固定间隙 − 底部安全距
++            val fixedArtworkCeiling = maxHeight - pureTextBlockHeight -
++                AutomotivePureModeArtworkTitleGap - AutomotivePureModeTextLift -
++                AutomotivePureModeBottomSafeGap
 +            baseLayout.copy(
 +                artworkSize = minOf(
 +                    maxWidth * 0.92f,
-+                    maxHeight * 0.76f,
-+                    maxHeight - pureTextBlockHeight -
-+                        AutomotivePureModeArtworkTitleGap - AutomotivePureModeBottomSafeGap,
-+                ).coerceIn(AutomotivePureModeArtworkMinSize, AutomotivePureModeArtworkMaxSize),
++                    // 固定 480dp，但永不越过历史上限 560dp（护栏，正常不触发）
++                    AutomotivePureModeArtworkFixedSize.coerceAtMost(AutomotivePureModeArtworkMaxSize),
++                    fixedArtworkCeiling,
++                ).coerceAtLeast(AutomotivePureModeArtworkMinSize),
 +                bottomPadding = AutomotivePureModeBottomSafeGap,
 +                artworkTitleGap = AutomotivePureModeArtworkTitleGap,
 +                metadataGap = AutomotivePureModeMetadataGap,
@@ -1924,12 +2006,12 @@ index 1aa0ba8..5a64a14 100644
 +        // 会双重放大（1.5×1.5），导致播放页文字超大、歌名截断（v3 的 bug，v4 修复）
          val titleStyle =
 -            if (compactVertical) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineMedium
-+            (if (compactVertical) AutomotiveTypography.titleLarge else AutomotiveTypography.headlineMedium)
++            (if (useCompactText) AutomotiveTypography.titleLarge else AutomotiveTypography.headlineMedium)
 +                .scaleFont(carUiScale)
          val inlineActionButtonSize = if (compactVertical) 44.dp else 52.dp
          val inlineActionIconSize = if (compactVertical) 24.dp else 28.dp
          Column(
-@@ -306,6 +403,9 @@ private fun AutomotiveTrackAndProgress(
+@@ -306,6 +435,9 @@ private fun AutomotiveTrackAndProgress(
                  .fillMaxSize()
                  .padding(bottom = layout.bottomPadding),
              horizontalAlignment = Alignment.CenterHorizontally,
@@ -1939,7 +2021,7 @@ index 1aa0ba8..5a64a14 100644
              verticalArrangement = Arrangement.Bottom,
          ) {
              AutomotiveSwipeableArtwork(
-@@ -332,36 +432,45 @@ private fun AutomotiveTrackAndProgress(
+@@ -332,36 +464,52 @@ private fun AutomotiveTrackAndProgress(
                          style = titleStyle,
                          fontWeight = FontWeight.ExtraBold,
                          color = Color.White.copy(alpha = 0.96f),
@@ -1979,13 +2061,20 @@ index 1aa0ba8..5a64a14 100644
                      snapshot = snapshot,
                      track = track,
 -                    style = if (compactVertical) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.titleMedium,
-+                    style = (if (compactVertical) AutomotiveTypography.bodyLarge else AutomotiveTypography.titleMedium)
++                    style = (if (useCompactText) AutomotiveTypography.bodyLarge else AutomotiveTypography.titleMedium)
 +                    .scaleFont(carUiScale),
                      color = Color.White.copy(alpha = 0.72f),
                      onlineNavigationSourceId = onlineNavigationSourceId,
                      onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
 +                    showAlbum = true,
 +                )
++            }
++            // v19（需求2）：最大化页把「歌名 + 歌手·专辑」整块上提 10dp。
++            // 本 Spacer 放在文字块之后、底部安全区之前 —— Column 是 Bottom 对齐，
++            // 因此这段空档会把文字块（连同其上方的封面）整体顶高 10dp，底部安全距仍是 20dp。
++            // 封面的主取值是固定 480dp（不含本值），故唱片高度不受此改动影响。
++            if (isPureMode) {
++                Spacer(Modifier.height(AutomotivePureModeTextLift))
 +            }
 +            if (!isPureMode) {
 +                Spacer(Modifier.height(layout.progressTopGap))
@@ -2005,7 +2094,7 @@ index 1aa0ba8..5a64a14 100644
          }
      }
  }
-@@ -387,16 +496,12 @@ private fun AutomotiveSwipeableArtwork(
+@@ -387,16 +535,12 @@ private fun AutomotiveSwipeableArtwork(
          animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
          label = "automotive-artwork-swipe-offset",
      )
@@ -2028,7 +2117,7 @@ index 1aa0ba8..5a64a14 100644
      }
      Box(
          modifier = modifier
-@@ -475,6 +580,7 @@ private fun AutomotiveMetadataNavigationRow(
+@@ -475,6 +619,7 @@ private fun AutomotiveMetadataNavigationRow(
      onlineNavigationSourceId: String?,
      onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
      modifier: Modifier = Modifier,
@@ -2036,7 +2125,7 @@ index 1aa0ba8..5a64a14 100644
  ) {
      val navigationTargets = remember(
          snapshot.currentDisplayAlbumTitle,
-@@ -504,62 +610,33 @@ private fun AutomotiveMetadataNavigationRow(
+@@ -504,62 +649,33 @@ private fun AutomotiveMetadataNavigationRow(
          primary = snapshot.currentDisplayAlbumTitle,
          fallback = track.albumTitle,
      )
@@ -2119,7 +2208,7 @@ index 1aa0ba8..5a64a14 100644
      )
  }
  
-@@ -567,6 +644,7 @@ private fun AutomotiveMetadataText(
+@@ -567,6 +683,7 @@ private fun AutomotiveMetadataText(
  private fun AutomotivePlaybackProgress(
      snapshot: PlaybackSnapshot,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -2127,7 +2216,7 @@ index 1aa0ba8..5a64a14 100644
      modifier: Modifier = Modifier,
  ) {
      var dragFraction by remember(snapshot.currentTrack?.id, snapshot.durationMs) {
-@@ -615,18 +693,107 @@ private fun AutomotivePlaybackProgress(
+@@ -615,18 +732,121 @@ private fun AutomotivePlaybackProgress(
          ) {
              Text(
                  text = formatDuration(snapshot.positionMs),
@@ -2151,6 +2240,8 @@ index 1aa0ba8..5a64a14 100644
 +private fun AutomotivePureModeProgressRow(
 +    snapshot: PlaybackSnapshot,
 +    onPlayerIntent: (PlayerIntent) -> Unit,
++    albumNavigationTarget: LibraryNavigationTarget? = null,
++    onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit = {},
 +    carUiScale: Float = 1.5f,
 +    modifier: Modifier = Modifier,
 +) {
@@ -2165,6 +2256,18 @@ index 1aa0ba8..5a64a14 100644
 +    ) {
 +        // v11：进度条左侧两个控制钮——a.播放模式(顺序/随机/单曲) b.搜索歌词
 +        // 最大化模式底部控制条被收起，故把这两个常用钮挪到进度条左侧
++        // v19（需求3）：在最左新增「专辑」按钮 —— 一键跳到当前歌曲所在专辑，
++        // 听到好歌可立刻去听整张专辑。位置沿用这条既有控制带，零新增高度、
++        // 不挤压封面与歌名（伍所选定的方案②）。专辑信息缺失时自动隐藏。
++        if (albumNavigationTarget != null) {
++            AutomotiveRoundIconButton(
++                icon = Icons.Rounded.Album,
++                contentDescription = "跳转到该歌曲所在专辑",
++                onClick = { onOpenLibraryNavigationTarget(albumNavigationTarget) },
++                buttonSize = 64.dp,
++                iconSize = 34.dp,
++            )
++        }
 +        AutomotiveRoundIconButton(
 +            icon = playbackModeIcon(snapshot.mode),
 +            contentDescription = "切换播放模式",
@@ -2237,13 +2340,16 @@ index 1aa0ba8..5a64a14 100644
  @Composable
  private fun AutomotiveRoundedSliderTrack(
      progressFraction: Float,
-@@ -734,19 +901,45 @@ private fun AutomotiveLyricsPane(
+@@ -734,19 +954,50 @@ private fun AutomotiveLyricsPane(
      state: PlayerState,
      track: Track,
      onPlayerIntent: (PlayerIntent) -> Unit,
 +    isPureMode: Boolean,
 +    onPureModeChanged: (Boolean) -> Unit,
 +    onOpenQueue: () -> Unit,
++    // v19（需求3）：底栏「专辑」跳转按钮 —— 目标由上层统一推导后注入，null 时按钮不渲染
++    albumNavigationTarget: LibraryNavigationTarget? = null,
++    onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit = {},
      modifier: Modifier = Modifier,
  ) {
 +    // v7：移除上/下两条 64dp 触发带及其提示图标（歌词区 +128dp ≈ +25%）
@@ -2284,6 +2390,8 @@ index 1aa0ba8..5a64a14 100644
 +                AutomotivePureModeProgressRow(
 +                    snapshot = state.snapshot,
 +                    onPlayerIntent = onPlayerIntent,
++                    albumNavigationTarget = albumNavigationTarget,
++                    onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
 +                    modifier = Modifier.fillMaxWidth(),
 +                )
 +            }
@@ -2291,7 +2399,7 @@ index 1aa0ba8..5a64a14 100644
      }
  }
  
-@@ -792,9 +985,8 @@ internal fun resolveAutomotiveTopControlButtonSize(maxWidth: Dp): Dp =
+@@ -792,9 +1043,8 @@ internal fun resolveAutomotiveTopControlButtonSize(maxWidth: Dp): Dp =
      minOf(AutomotiveTopControlsSlotHeight, maxWidth / 3f)
          .coerceAtLeast(AutomotiveControlMinimumTouchSize)
  
@@ -2303,7 +2411,7 @@ index 1aa0ba8..5a64a14 100644
  
  internal fun resolveAutomotivePureModeAfterTwoFingerTap(
      isPureMode: Boolean,
-@@ -1190,11 +1382,36 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
+@@ -1190,11 +1440,47 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
  private val AutomotiveFiveControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 5
  private val AutomotivePrimaryControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 3
  private val AutomotiveTopControlsSlotHeight = 64.dp
@@ -2319,8 +2427,19 @@ index 1aa0ba8..5a64a14 100644
 +private val AutomotivePureModeArtworkTitleGap = 6.dp
 +private val AutomotivePureModeMetadataGap = 4.dp
 +private val AutomotivePureModeBottomSafeGap = 20.dp
++// v19（需求2）：应伍所要求，最大化页「歌名 + 歌手·专辑」文字块整体上提 10dp。
++// 它只作为文字块下方的一段空档（Bottom 对齐下把文字块连同其上方的封面整体顶高），
++// 封面的主取值是固定 480dp、不含本值，故「唱片高度」不受此改动影响。
++// （仅在极小屏触发"按需收小"兜底时，本值才作为必要间隙参与计算。）
++private val AutomotivePureModeTextLift = 10.dp
 +private val AutomotivePureModeArtworkMinSize = 120.dp
 +private val AutomotivePureModeArtworkMaxSize = 560.dp
++// v19（需求2）：最大化页封面「固定值」。
++// 改前 pure 模式封面 = min(宽×0.92, 高×0.76, 高−文字块−间距−边距)，其中「高」是
++// BoxWithConstraints 的实测值 —— 车机状态栏/导航栏一显一隐它就变，导致每次启动封面尺寸
++// 不同、底行余量跟着变（伍所反馈的"下端截断高度会变化"）。
++// 现在锁定 480dp（1280×720 实机确认的最佳观感尺寸），只保留"物理空间不足时按需收小"的兜底。
++private val AutomotivePureModeArtworkFixedSize = 480.dp
 +private val AutomotiveMaximizeBackButtonSize = 84.dp
 +private val AutomotiveMaximizeBackIconSize = 48.dp
 +private const val AutomotivePureModeArtworkScale = 1.25f
@@ -2340,7 +2459,7 @@ index 1aa0ba8..5a64a14 100644
  internal data class AutomotiveTrackAndProgressLayout(
      val compactVertical: Boolean,
      val artworkSize: Dp,
-@@ -1324,3 +1541,41 @@ private fun automotiveMetadataValue(
+@@ -1324,3 +1610,41 @@ private fun automotiveMetadataValue(
      return primary?.trim()?.takeIf { it.isNotBlank() }
          ?: fallback?.trim()?.takeIf { it.isNotBlank() }
  }

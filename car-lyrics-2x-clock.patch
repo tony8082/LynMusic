@@ -755,7 +755,7 @@ index 0000000..1bfc08e
 +expect fun readAutoStartOnBoot(context: Any): Boolean
 +expect fun writeAutoStartOnBoot(context: Any, enabled: Boolean)
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
-index ca2a2d3..78412ed 100644
+index ca2a2d3..6535147 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
 @@ -90,10 +90,12 @@ import androidx.compose.ui.text.input.TextFieldValue
@@ -948,10 +948,10 @@ index ca2a2d3..78412ed 100644
 +                        LibraryDetailPlayAllButton(
 +                            enabled = selectedFolderTracks.isNotEmpty(),
 +                            onPlayAll = {
-+                                actions.onPlayContainerResumed(selectedFolder.key.stableId, selectedFolderTracks, shuffle = true)
++                                actions.onPlayContainerResumed(selectedFolder.key.stableId, selectedFolderTracks, true)
 +                            },
 +                            onPlayOrder = {
-+                                actions.onPlayContainerResumed(selectedFolder.key.stableId, selectedFolderTracks, shuffle = false)
++                                actions.onPlayContainerResumed(selectedFolder.key.stableId, selectedFolderTracks, false)
 +                            },
 +                        )
 +                    }
@@ -980,7 +980,7 @@ index ca2a2d3..78412ed 100644
 +                                    actions.onPlayContainerResumed(
 +                                        folder.key.stableId,
 +                                        folderTracks,
-+                                        shuffle = true,
++                                        true,
 +                                    )
 +                                },
 +                                onPlayOrder = {
@@ -989,7 +989,7 @@ index ca2a2d3..78412ed 100644
 +                                    actions.onPlayContainerResumed(
 +                                        folder.key.stableId,
 +                                        folderTracks,
-+                                        shuffle = false,
++                                        false,
 +                                    )
 +                                },
                              )
@@ -1084,7 +1084,7 @@ index ca2a2d3..78412ed 100644
 +                                            actions.onPlayContainerResumed(
 +                                                folder.key.stableId,
 +                                                folderTracks,
-+                                                shuffle = true,
++                                                true,
 +                                            )
 +                                        },
 +                                        onPlayOrder = {
@@ -1093,7 +1093,7 @@ index ca2a2d3..78412ed 100644
 +                                            actions.onPlayContainerResumed(
 +                                                folder.key.stableId,
 +                                                folderTracks,
-+                                                shuffle = false,
++                                                false,
 +                                            )
 +                                        },
                                      )

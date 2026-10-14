@@ -1,5 +1,5 @@
 diff --git a/android/runtime/src/main/kotlin/top/iwesley/lyn/music/platform/AndroidServiceBackedPlaybackRepository.kt b/android/runtime/src/main/kotlin/top/iwesley/lyn/music/platform/AndroidServiceBackedPlaybackRepository.kt
-index 7fdf523..95d14f3 100644
+index 7fdf523..c3ee265 100644
 --- a/android/runtime/src/main/kotlin/top/iwesley/lyn/music/platform/AndroidServiceBackedPlaybackRepository.kt
 +++ b/android/runtime/src/main/kotlin/top/iwesley/lyn/music/platform/AndroidServiceBackedPlaybackRepository.kt
 @@ -17,8 +17,10 @@ import kotlinx.coroutines.flow.collectLatest
@@ -21,7 +21,7 @@ index 7fdf523..95d14f3 100644
 +    override suspend fun playTracks(
 +        tracks: List<Track>,
 +        startIndex: Int,
-+        sourceContainerKey: String? = null,
++        sourceContainerKey: String?,
 +    ) {
          Log.w(
              ANDROID_SERVICE_REPOSITORY_LOG_TAG,
@@ -116,7 +116,7 @@ index 0000000..01a938b
 +    }
 +}
 diff --git a/composeApp/src/commonTest/kotlin/top/iwesley/lyn/music/PlayerStoreManualLyricsSearchTest.kt b/composeApp/src/commonTest/kotlin/top/iwesley/lyn/music/PlayerStoreManualLyricsSearchTest.kt
-index 63fb6bf..3cdf182 100644
+index 63fb6bf..2fc5e69 100644
 --- a/composeApp/src/commonTest/kotlin/top/iwesley/lyn/music/PlayerStoreManualLyricsSearchTest.kt
 +++ b/composeApp/src/commonTest/kotlin/top/iwesley/lyn/music/PlayerStoreManualLyricsSearchTest.kt
 @@ -587,7 +587,11 @@ private class FakePlaybackRepository(
@@ -127,7 +127,7 @@ index 63fb6bf..3cdf182 100644
 +    override suspend fun playTracks(
 +        tracks: List<Track>,
 +        startIndex: Int,
-+        sourceContainerKey: String? = null,
++        sourceContainerKey: String?,
 +    ) = Unit
      override suspend fun playTransientTracks(tracks: List<Track>, startIndex: Int) = Unit
      override suspend fun prepareExternalPlaybackQueue(tracks: List<Track>, startIndex: Int): PlaybackSnapshot? = null
@@ -2713,10 +2713,10 @@ index 7db32c1..83370ac 100644
      val currentTrack: Track?
          get() = queue.getOrNull(currentIndex)
 diff --git a/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/data/repository/PlaybackRepositories.kt b/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/data/repository/PlaybackRepositories.kt
-index 332d1e4..405b0ae 100644
+index 332d1e4..2645360 100644
 --- a/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/data/repository/PlaybackRepositories.kt
 +++ b/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/data/repository/PlaybackRepositories.kt
-@@ -70,13 +70,14 @@ import top.iwesley.lyn.music.core.model.parseEmbySongLocator
+@@ -70,13 +70,18 @@ import top.iwesley.lyn.music.core.model.parseEmbySongLocator
  import top.iwesley.lyn.music.core.model.parseSubsonicCompatibleSongLocator
  import top.iwesley.lyn.music.core.model.warn
  import top.iwesley.lyn.music.data.db.LynMusicDatabase
@@ -2728,11 +2728,15 @@ index 332d1e4..405b0ae 100644
  
      suspend fun hydratePersistedQueueIfNeeded(): PlaybackHydrationResult
 -    suspend fun playTracks(tracks: List<Track>, startIndex: Int)
-+    suspend fun playTracks(tracks: List<Track>, startIndex: Int, sourceContainerKey: String? = null)
++    suspend fun playTracks(tracks: List<Track>, startIndex: Int, sourceContainerKey: String?)
++
++    /** 便捷重载：不带续播容器键（非容器播放）。默认实现委托给三参版本。 */
++    suspend fun playTracks(tracks: List<Track>, startIndex: Int): Unit =
++        playTracks(tracks, startIndex, null)
      suspend fun playTransientTracks(tracks: List<Track>, startIndex: Int)
      suspend fun prepareExternalPlaybackQueue(tracks: List<Track>, startIndex: Int): PlaybackSnapshot?
      suspend fun playQueueIndex(index: Int)
-@@ -87,10 +88,36 @@ interface PlaybackRepository {
+@@ -87,10 +92,36 @@ interface PlaybackRepository {
      suspend fun seekTo(positionMs: Long)
      suspend fun setVolume(volume: Float)
      suspend fun cycleMode()
@@ -2769,7 +2773,7 @@ index 332d1e4..405b0ae 100644
  sealed interface PlaybackHydrationResult {
      data class Restored(
          val loadToken: PlaybackLoadToken,
-@@ -109,7 +136,7 @@ class DefaultPlaybackRepository(
+@@ -109,7 +140,7 @@ class DefaultPlaybackRepository(
      private val scope: CoroutineScope,
      private val systemPlaybackControlsPlatformService: SystemPlaybackControlsPlatformService = UnsupportedSystemPlaybackControlsPlatformService,
      private val logger: DiagnosticLogger = NoopDiagnosticLogger,
@@ -2778,7 +2782,7 @@ index 332d1e4..405b0ae 100644
      hydrateImmediately: Boolean = true,
      private val playbackStatsReporter: PlaybackStatsReporter = NoopPlaybackStatsReporter,
      private val currentTimeMillis: () -> Long = ::now,
-@@ -289,6 +316,29 @@ class DefaultPlaybackRepository(
+@@ -289,6 +320,29 @@ class DefaultPlaybackRepository(
                  systemPlaybackControlsPlatformService.updateSnapshot(snapshot)
              }
          }
@@ -2808,7 +2812,7 @@ index 332d1e4..405b0ae 100644
      }
  
      override suspend fun hydratePersistedQueueIfNeeded(): PlaybackHydrationResult =
-@@ -322,31 +372,54 @@ class DefaultPlaybackRepository(
+@@ -322,31 +376,54 @@ class DefaultPlaybackRepository(
              result
          }
  
@@ -2816,7 +2820,7 @@ index 332d1e4..405b0ae 100644
 +    override suspend fun playTracks(
 +        tracks: List<Track>,
 +        startIndex: Int,
-+        sourceContainerKey: String? = null,
++        sourceContainerKey: String?,
 +    ) {
          var loadRequest: PlaybackLoadRequest? = null
          playbackCommandMutex.withLock {
@@ -2871,7 +2875,7 @@ index 332d1e4..405b0ae 100644
              )
          }
          loadRequest?.let {
-@@ -355,6 +428,40 @@ class DefaultPlaybackRepository(
+@@ -355,6 +432,40 @@ class DefaultPlaybackRepository(
          }
      }
  
@@ -2912,7 +2916,7 @@ index 332d1e4..405b0ae 100644
      override suspend fun playTransientTracks(tracks: List<Track>, startIndex: Int) {
          var loadRequest: PlaybackLoadRequest? = null
          playbackCommandMutex.withLock {
-@@ -511,6 +618,20 @@ class DefaultPlaybackRepository(
+@@ -511,6 +622,20 @@ class DefaultPlaybackRepository(
          }
      }
  
@@ -2933,7 +2937,7 @@ index 332d1e4..405b0ae 100644
      override suspend fun overrideCurrentTrackArtwork(artworkLocator: String?) {
          playbackCommandMutex.withLock {
              val snapshot = mutableSnapshot.value
-@@ -690,6 +811,16 @@ class DefaultPlaybackRepository(
+@@ -690,6 +815,16 @@ class DefaultPlaybackRepository(
              persisted.currentIndex.coerceIn(0, queueIds.lastIndex),
          )
          val mode = persisted.mode.toPlaybackMode()
@@ -2950,7 +2954,7 @@ index 332d1e4..405b0ae 100644
          val playWhenReady = playbackPreferencesStore.autoPlayOnStartup.value
          var loadRequest: PlaybackLoadRequest? = null
          var shouldApplyRestore = false
-@@ -699,14 +830,14 @@ class DefaultPlaybackRepository(
+@@ -699,14 +834,14 @@ class DefaultPlaybackRepository(
              } else {
                  shouldApplyRestore = true
                  mutableSnapshot.value = PlaybackSnapshot(
@@ -2968,7 +2972,7 @@ index 332d1e4..405b0ae 100644
                      canSeek = false,
                      volume = mutableSnapshot.value.volume,
                      metadataTitle = null,
-@@ -715,7 +846,7 @@ class DefaultPlaybackRepository(
+@@ -715,7 +850,7 @@ class DefaultPlaybackRepository(
                      metadataArtworkLocator = null,
                  )
                  loadRequest = createLoadRequest(
@@ -2977,7 +2981,7 @@ index 332d1e4..405b0ae 100644
                      playWhenReady = playWhenReady,
                      startPositionMs = persisted.positionMs,
                  )
-@@ -1145,6 +1276,9 @@ data class PlayerRuntimeServices(
+@@ -1145,6 +1280,9 @@ data class PlayerRuntimeServices(
  
  private fun now(): Long = Clock.System.now().toEpochMilliseconds()
  
@@ -3077,7 +3081,7 @@ index 0d86686..5b3efbf 100644
          }
          if (tracks.isEmpty()) return
 diff --git a/player/core/src/commonTest/kotlin/top/iwesley/lyn/music/feature/player/PlayerStoreLyricsShareTest.kt b/player/core/src/commonTest/kotlin/top/iwesley/lyn/music/feature/player/PlayerStoreLyricsShareTest.kt
-index deae7e0..ca22ee9 100644
+index deae7e0..6a993eb 100644
 --- a/player/core/src/commonTest/kotlin/top/iwesley/lyn/music/feature/player/PlayerStoreLyricsShareTest.kt
 +++ b/player/core/src/commonTest/kotlin/top/iwesley/lyn/music/feature/player/PlayerStoreLyricsShareTest.kt
 @@ -1175,7 +1175,11 @@ private class FakeLyricsSharePlaybackRepository(
@@ -3088,7 +3092,7 @@ index deae7e0..ca22ee9 100644
 +    override suspend fun playTracks(
 +        tracks: List<Track>,
 +        startIndex: Int,
-+        sourceContainerKey: String? = null,
++        sourceContainerKey: String?,
 +    ) = Unit
  
      override suspend fun playTransientTracks(tracks: List<Track>, startIndex: Int) = Unit
@@ -3114,7 +3118,7 @@ index deae7e0..ca22ee9 100644
      override suspend fun overrideCurrentTrackArtwork(artworkLocator: String?) = Unit
  
 diff --git a/player/core/src/commonTest/kotlin/top/iwesley/lyn/music/feature/player/PlayerStoreQueueTest.kt b/player/core/src/commonTest/kotlin/top/iwesley/lyn/music/feature/player/PlayerStoreQueueTest.kt
-index 2777fee..2265bfe 100644
+index 2777fee..6871595 100644
 --- a/player/core/src/commonTest/kotlin/top/iwesley/lyn/music/feature/player/PlayerStoreQueueTest.kt
 +++ b/player/core/src/commonTest/kotlin/top/iwesley/lyn/music/feature/player/PlayerStoreQueueTest.kt
 @@ -1408,7 +1408,11 @@ private class FakeQueuePlaybackRepository(
@@ -3125,7 +3129,7 @@ index 2777fee..2265bfe 100644
 +    override suspend fun playTracks(
 +        tracks: List<Track>,
 +        startIndex: Int,
-+        sourceContainerKey: String? = null,
++        sourceContainerKey: String?,
 +    ) {
          lastPlayTracks = tracks
          lastPlayStartIndex = startIndex

@@ -1,22 +1,57 @@
 diff --git a/android/runtime/src/main/kotlin/top/iwesley/lyn/music/platform/AndroidServiceBackedPlaybackRepository.kt b/android/runtime/src/main/kotlin/top/iwesley/lyn/music/platform/AndroidServiceBackedPlaybackRepository.kt
-index 7fdf523..3dd3732 100644
+index 7fdf523..95d14f3 100644
 --- a/android/runtime/src/main/kotlin/top/iwesley/lyn/music/platform/AndroidServiceBackedPlaybackRepository.kt
 +++ b/android/runtime/src/main/kotlin/top/iwesley/lyn/music/platform/AndroidServiceBackedPlaybackRepository.kt
-@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.collectLatest
+@@ -17,8 +17,10 @@ import kotlinx.coroutines.flow.collectLatest
  import kotlinx.coroutines.flow.filterNotNull
  import kotlinx.coroutines.flow.first
  import kotlinx.coroutines.launch
 +import top.iwesley.lyn.music.core.model.PlaybackMode
  import top.iwesley.lyn.music.core.model.PlaybackSnapshot
  import top.iwesley.lyn.music.core.model.Track
++import top.iwesley.lyn.music.data.repository.ContainerResumeRecord
  import top.iwesley.lyn.music.data.repository.PlaybackHydrationResult
-@@ -124,6 +125,10 @@ internal class AndroidServiceBackedPlaybackRepository(
+ import top.iwesley.lyn.music.data.repository.PlaybackRepository
+ 
+@@ -67,12 +69,16 @@ internal class AndroidServiceBackedPlaybackRepository(
+     override suspend fun hydratePersistedQueueIfNeeded(): PlaybackHydrationResult =
+         repository().hydratePersistedQueueIfNeeded()
+ 
+-    override suspend fun playTracks(tracks: List<Track>, startIndex: Int) {
++    override suspend fun playTracks(
++        tracks: List<Track>,
++        startIndex: Int,
++        sourceContainerKey: String? = null,
++    ) {
+         Log.w(
+             ANDROID_SERVICE_REPOSITORY_LOG_TAG,
+-            "client-play-tracks size=${tracks.size} startIndex=$startIndex target=${tracks.getOrNull(startIndex)?.id.orEmpty()}",
++            "client-play-tracks size=${tracks.size} startIndex=$startIndex containerKey=${sourceContainerKey.orEmpty()} target=${tracks.getOrNull(startIndex)?.id.orEmpty()}",
+         )
+-        repository().playTracks(tracks, startIndex)
++        repository().playTracks(tracks, startIndex, sourceContainerKey)
+     }
+ 
+     override suspend fun playTransientTracks(tracks: List<Track>, startIndex: Int) {
+@@ -124,6 +130,22 @@ internal class AndroidServiceBackedPlaybackRepository(
          repository().cycleMode()
      }
  
 +    override suspend fun setMode(mode: PlaybackMode) {
 +        repository().setMode(mode)
 +    }
++
++    override suspend fun getContainerResume(
++        containerKey: String,
++        mode: PlaybackMode,
++    ): ContainerResumeRecord? = repository().getContainerResume(containerKey, mode)
++
++    override suspend fun saveContainerResume(
++        containerKey: String,
++        mode: PlaybackMode,
++        trackId: String,
++        positionMs: Long,
++    ) = repository().saveContainerResume(containerKey, mode, trackId, positionMs)
 +
      override suspend fun overrideCurrentTrackArtwork(artworkLocator: String?) {
          repository().overrideCurrentTrackArtwork(artworkLocator)
@@ -81,14 +116,37 @@ index 0000000..01a938b
 +    }
 +}
 diff --git a/composeApp/src/commonTest/kotlin/top/iwesley/lyn/music/PlayerStoreManualLyricsSearchTest.kt b/composeApp/src/commonTest/kotlin/top/iwesley/lyn/music/PlayerStoreManualLyricsSearchTest.kt
-index 63fb6bf..8183c95 100644
+index 63fb6bf..3cdf182 100644
 --- a/composeApp/src/commonTest/kotlin/top/iwesley/lyn/music/PlayerStoreManualLyricsSearchTest.kt
 +++ b/composeApp/src/commonTest/kotlin/top/iwesley/lyn/music/PlayerStoreManualLyricsSearchTest.kt
-@@ -598,6 +598,7 @@ private class FakePlaybackRepository(
+@@ -587,7 +587,11 @@ private class FakePlaybackRepository(
+ 
+     override suspend fun hydratePersistedQueueIfNeeded() = PlaybackHydrationResult.Empty
+ 
+-    override suspend fun playTracks(tracks: List<Track>, startIndex: Int) = Unit
++    override suspend fun playTracks(
++        tracks: List<Track>,
++        startIndex: Int,
++        sourceContainerKey: String? = null,
++    ) = Unit
+     override suspend fun playTransientTracks(tracks: List<Track>, startIndex: Int) = Unit
+     override suspend fun prepareExternalPlaybackQueue(tracks: List<Track>, startIndex: Int): PlaybackSnapshot? = null
+     override suspend fun playQueueIndex(index: Int) = Unit
+@@ -598,6 +602,17 @@ private class FakePlaybackRepository(
      override suspend fun seekTo(positionMs: Long) = Unit
      override suspend fun setVolume(volume: Float) = Unit
      override suspend fun cycleMode() = Unit
 +    override suspend fun setMode(mode: top.iwesley.lyn.music.core.model.PlaybackMode) = Unit
++    override suspend fun getContainerResume(
++        containerKey: String,
++        mode: top.iwesley.lyn.music.core.model.PlaybackMode,
++    ): top.iwesley.lyn.music.data.repository.ContainerResumeRecord? = null
++    override suspend fun saveContainerResume(
++        containerKey: String,
++        mode: top.iwesley.lyn.music.core.model.PlaybackMode,
++        trackId: String,
++        positionMs: Long,
++    ) = Unit
      override suspend fun overrideCurrentTrackArtwork(artworkLocator: String?) {
          val snapshot = mutableSnapshot.value
          val currentTrack = snapshot.currentTrack ?: return
@@ -697,7 +755,7 @@ index 0000000..1bfc08e
 +expect fun readAutoStartOnBoot(context: Any): Boolean
 +expect fun writeAutoStartOnBoot(context: Any, enabled: Boolean)
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
-index ca2a2d3..444447a 100644
+index ca2a2d3..78412ed 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
 @@ -90,10 +90,12 @@ import androidx.compose.ui.text.input.TextFieldValue
@@ -747,24 +805,44 @@ index ca2a2d3..444447a 100644
      showFavoriteButton: Boolean = true,
      showDuration: Boolean = true,
      showSearchField: Boolean = true,
-@@ -256,6 +271,8 @@ internal fun LibraryTab(
+@@ -256,6 +271,18 @@ internal fun LibraryTab(
              }
          },
          onPlayTracks = { tracks, index -> onPlayerIntent(PlayerIntent.PlayTracks(tracks, index)) },
 +        onSelectPlayMode = { shuffle -> onPlayerIntent(PlayerIntent.SetPlaybackMode(if (shuffle) PlaybackMode.SHUFFLE else PlaybackMode.ORDER)) },
++        onPlayContainerResumed = { containerKey, tracks, shuffle ->
++            onPlayerIntent(PlayerIntent.SetPlaybackMode(if (shuffle) PlaybackMode.SHUFFLE else PlaybackMode.ORDER))
++            onPlayerIntent(
++                PlayerIntent.PlayTracks(
++                    tracks,
++                    if (shuffle) randomMiddleStartIndex(tracks.size) else 0,
++                    sourceContainerKey = containerKey,
++                ),
++            )
++        },
 +        onGeneratePlaylist = onGeneratePlaylist,
      )
      LibraryBrowserTab(
          state = browserState,
-@@ -352,6 +369,7 @@ internal fun FavoritesTab(
+@@ -352,6 +379,17 @@ internal fun FavoritesTab(
          },
          onLoadMoreTracks = { onOnlineIntent(OnlineFavoritesIntent.LoadMore) },
          onPlayTracks = { tracks, index -> onPlayerIntent(PlayerIntent.PlayTracks(tracks, index)) },
 +        onSelectPlayMode = { shuffle -> onPlayerIntent(PlayerIntent.SetPlaybackMode(if (shuffle) PlaybackMode.SHUFFLE else PlaybackMode.ORDER)) },
++        onPlayContainerResumed = { containerKey, tracks, shuffle ->
++            onPlayerIntent(PlayerIntent.SetPlaybackMode(if (shuffle) PlaybackMode.SHUFFLE else PlaybackMode.ORDER))
++            onPlayerIntent(
++                PlayerIntent.PlayTracks(
++                    tracks,
++                    if (shuffle) randomMiddleStartIndex(tracks.size) else 0,
++                    sourceContainerKey = containerKey,
++                ),
++            )
++        },
      )
      LibraryBrowserTab(
          state = browserState,
-@@ -553,6 +571,21 @@ internal data class LibraryFolderTree(
+@@ -553,6 +591,21 @@ internal data class LibraryFolderTree(
      val folderCount: Int = nodesByKey.size
  }
  
@@ -786,7 +864,7 @@ index ca2a2d3..444447a 100644
  internal fun deriveLibraryFolderTree(
      tracks: List<Track>,
      sourceLabelsById: Map<String, String>,
-@@ -1391,6 +1424,13 @@ private fun LibraryBrowserTab(
+@@ -1391,6 +1444,13 @@ private fun LibraryBrowserTab(
                      onSelectRootView = ::selectRootView,
                      onPlayAllTracks = {
                          if (visibleTracks.isNotEmpty()) {
@@ -800,7 +878,7 @@ index ca2a2d3..444447a 100644
                              actions.onPlayTracks(visibleTracks, 0)
                          }
                      },
-@@ -1423,6 +1463,28 @@ private fun LibraryBrowserTab(
+@@ -1423,6 +1483,28 @@ private fun LibraryBrowserTab(
                              artworkCacheKey = albumTracks.firstOrNull()?.let(::trackArtworkCacheKey),
                          )
                      }
@@ -829,7 +907,7 @@ index ca2a2d3..444447a 100644
                      item {
                          SectionTitle(title = "歌曲", subtitle = "当前专辑下的可见歌曲。")
                      }
-@@ -1489,6 +1551,32 @@ private fun LibraryBrowserTab(
+@@ -1489,6 +1571,32 @@ private fun LibraryBrowserTab(
                              },
                          )
                      }
@@ -862,7 +940,7 @@ index ca2a2d3..444447a 100644
                      item {
                          SectionTitle(
                              title = "专辑",
-@@ -1583,14 +1671,53 @@ private fun LibraryBrowserTab(
+@@ -1583,14 +1691,54 @@ private fun LibraryBrowserTab(
                              artworkCacheKey = selectedFolderTracks.firstOrNull()?.let(::trackArtworkCacheKey),
                          )
                      }
@@ -870,12 +948,10 @@ index ca2a2d3..444447a 100644
 +                        LibraryDetailPlayAllButton(
 +                            enabled = selectedFolderTracks.isNotEmpty(),
 +                            onPlayAll = {
-+                                actions.onSelectPlayMode(true)
-+                                actions.onPlayTracks(selectedFolderTracks, randomMiddleStartIndex(selectedFolderTracks.size))
++                                actions.onPlayContainerResumed(selectedFolder.key.stableId, selectedFolderTracks, shuffle = true)
 +                            },
 +                            onPlayOrder = {
-+                                actions.onSelectPlayMode(false)
-+                                actions.onPlayTracks(selectedFolderTracks, 0)
++                                actions.onPlayContainerResumed(selectedFolder.key.stableId, selectedFolderTracks, shuffle = false)
 +                            },
 +                        )
 +                    }
@@ -901,22 +977,25 @@ index ca2a2d3..444447a 100644
 +                                onPlayAll = {
 +                                    val folderTracks =
 +                                        folderTree.collectTracksRecursively(folder.key)
-+                                    actions.onSelectPlayMode(true)
-+                                    actions.onPlayTracks(
++                                    actions.onPlayContainerResumed(
++                                        folder.key.stableId,
 +                                        folderTracks,
-+                                        randomMiddleStartIndex(folderTracks.size),
++                                        shuffle = true,
 +                                    )
 +                                },
 +                                onPlayOrder = {
 +                                    val folderTracks =
 +                                        folderTree.collectTracksRecursively(folder.key)
-+                                    actions.onSelectPlayMode(false)
-+                                    actions.onPlayTracks(folderTracks, 0)
++                                    actions.onPlayContainerResumed(
++                                        folder.key.stableId,
++                                        folderTracks,
++                                        shuffle = false,
++                                    )
 +                                },
                              )
                          }
                      }
-@@ -1682,6 +1809,28 @@ private fun LibraryBrowserTab(
+@@ -1682,6 +1830,28 @@ private fun LibraryBrowserTab(
                      } else {
                          when (rootView) {
                              LibraryBrowserRootView.Tracks -> {
@@ -945,7 +1024,7 @@ index ca2a2d3..444447a 100644
                                  itemsIndexed(
                                      state.tracks,
                                      key = { _, item -> item.id }) { index, trackItem ->
-@@ -1704,6 +1853,7 @@ private fun LibraryBrowserTab(
+@@ -1704,6 +1874,7 @@ private fun LibraryBrowserTab(
                                          onClick = {
                                              actions.onPlayTracks(visibleTracks, index)
                                          },
@@ -953,7 +1032,7 @@ index ca2a2d3..444447a 100644
                                      )
                                  }
                                  if (state.capabilities.canLoadMoreTracks) {
-@@ -1733,6 +1883,20 @@ private fun LibraryBrowserTab(
+@@ -1733,6 +1904,20 @@ private fun LibraryBrowserTab(
                                              actions.onAlbumClick(albumItem)
                                              selectedAlbumId = album.id
                                          },
@@ -974,7 +1053,7 @@ index ca2a2d3..444447a 100644
                                      )
                                  }
                                  if (state.capabilities.canLoadMoreAlbums) {
-@@ -1759,6 +1923,20 @@ private fun LibraryBrowserTab(
+@@ -1759,6 +1944,20 @@ private fun LibraryBrowserTab(
                                              selectedArtistId = artist.id
                                              selectedAlbumId = null
                                          },
@@ -995,29 +1074,32 @@ index ca2a2d3..444447a 100644
                                      )
                                  }
                                  if (state.capabilities.canLoadMoreArtists) {
-@@ -1777,6 +1955,21 @@ private fun LibraryBrowserTab(
+@@ -1777,6 +1976,24 @@ private fun LibraryBrowserTab(
                                      FolderRow(
                                          folder = folder,
                                          onClick = { selectFolder(folder) },
 +                                        onPlayAll = {
 +                                            val folderTracks =
 +                                                folderTree.collectTracksRecursively(folder.key)
-+                                            actions.onSelectPlayMode(true)
-+                                            actions.onPlayTracks(
++                                            actions.onPlayContainerResumed(
++                                                folder.key.stableId,
 +                                                folderTracks,
-+                                                randomMiddleStartIndex(folderTracks.size),
++                                                shuffle = true,
 +                                            )
 +                                        },
 +                                        onPlayOrder = {
 +                                            val folderTracks =
 +                                                folderTree.collectTracksRecursively(folder.key)
-+                                            actions.onSelectPlayMode(false)
-+                                            actions.onPlayTracks(folderTracks, 0)
++                                            actions.onPlayContainerResumed(
++                                                folder.key.stableId,
++                                                folderTracks,
++                                                shuffle = false,
++                                            )
 +                                        },
                                      )
                                  }
                              }
-@@ -1860,6 +2053,7 @@ private fun LibraryRootSelector(
+@@ -1860,6 +2077,7 @@ private fun LibraryRootSelector(
      tracksStatFocusRequester: FocusRequester,
      onSelectRootView: (LibraryBrowserRootView) -> Unit,
      onPlayAllTracks: () -> Unit,
@@ -1025,7 +1107,7 @@ index ca2a2d3..444447a 100644
  ) {
      when (model.style) {
          LibraryRootSelectorStyle.Default -> DefaultLibraryRootSelector(
-@@ -1877,6 +2071,7 @@ private fun LibraryRootSelector(
+@@ -1877,6 +2095,7 @@ private fun LibraryRootSelector(
              tracksStatFocusRequester = tracksStatFocusRequester,
              onSelectRootView = onSelectRootView,
              onPlayAllTracks = onPlayAllTracks,
@@ -1033,7 +1115,7 @@ index ca2a2d3..444447a 100644
          )
      }
  }
-@@ -1921,6 +2116,7 @@ private fun CompactLibraryRootSelector(
+@@ -1921,6 +2140,7 @@ private fun CompactLibraryRootSelector(
      tracksStatFocusRequester: FocusRequester,
      onSelectRootView: (LibraryBrowserRootView) -> Unit,
      onPlayAllTracks: () -> Unit,
@@ -1041,7 +1123,7 @@ index ca2a2d3..444447a 100644
  ) {
      val heroItem = model.heroItem ?: return
      Column(
-@@ -1935,6 +2131,7 @@ private fun CompactLibraryRootSelector(
+@@ -1935,6 +2155,7 @@ private fun CompactLibraryRootSelector(
              playAllEnabled = model.playAllEnabled,
              onSelectTracks = { onSelectRootView(heroItem.rootView) },
              onPlayAllTracks = onPlayAllTracks,
@@ -1049,7 +1131,7 @@ index ca2a2d3..444447a 100644
          )
          Row(
              modifier = Modifier.fillMaxWidth(),
-@@ -1962,6 +2159,7 @@ private fun CompactLibraryHeroCard(
+@@ -1962,6 +2183,7 @@ private fun CompactLibraryHeroCard(
      playAllEnabled: Boolean,
      onSelectTracks: () -> Unit,
      onPlayAllTracks: () -> Unit,
@@ -1057,7 +1139,7 @@ index ca2a2d3..444447a 100644
  ) {
      val containerColor = if (selected) {
          MaterialTheme.colorScheme.secondary
-@@ -2016,20 +2214,66 @@ private fun CompactLibraryHeroCard(
+@@ -2016,20 +2238,66 @@ private fun CompactLibraryHeroCard(
                  overflow = TextOverflow.Ellipsis,
              )
          }
@@ -1138,7 +1220,7 @@ index ca2a2d3..444447a 100644
          }
      }
  }
-@@ -2119,18 +2363,33 @@ private fun compactLibraryRootIcon(
+@@ -2119,18 +2387,33 @@ private fun compactLibraryRootIcon(
  private fun FolderRow(
      folder: LibraryFolderNode,
      onClick: () -> Unit,
@@ -1173,7 +1255,7 @@ index ca2a2d3..444447a 100644
              Box(
                  modifier = Modifier
                      .size(52.dp)
-@@ -2802,6 +3061,59 @@ internal fun SourcesTab(
+@@ -2802,6 +3085,59 @@ internal fun SourcesTab(
                  title = "导入来源",
                  subtitle = "本地文件夹原地索引，Samba、WebDAV、Navidrome、Subsonic/OpenSubsonic 与 Emby 作为远程音乐库。"
              )
@@ -1233,7 +1315,7 @@ index ca2a2d3..444447a 100644
              state.message?.let { message ->
                  BannerCard(message = message, onDismiss = { onImportIntent(ImportIntent.ClearMessage) })
              }
-@@ -3889,3 +4201,117 @@ internal fun remoteSourceEditorTrackCountLabel(
+@@ -3889,3 +4225,117 @@ internal fun remoteSourceEditorTrackCountLabel(
  private fun isMobileSourcesPlatform(platform: PlatformDescriptor): Boolean {
      return platform.name == "Android" || platform.name == "iPhone / iPad"
  }
@@ -1515,7 +1597,7 @@ index 906e8b6..85fb662 100644
                  }
              }
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/PlaylistsUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/PlaylistsUi.kt
-index 6405449..a440685 100644
+index 6405449..43cf838 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/PlaylistsUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/PlaylistsUi.kt
 @@ -625,6 +625,147 @@ private fun playlistAddTrackLabel(track: Track): String {
@@ -1666,6 +1748,34 @@ index 6405449..a440685 100644
  @Composable
  internal fun PlaylistsTab(
      state: PlaylistsState,
+@@ -841,11 +982,11 @@ internal fun PlaylistsTab(
+                     },
+                     onPlayAll = { tracks ->
+                         if (tracks.isNotEmpty()) {
+-                            onPlayerIntent(PlayerIntent.PlayTracks(tracks, 0))
++                            onPlayerIntent(PlayerIntent.PlayTracks(tracks, 0, sourceContainerKey = requestedPlaylistId))
+                         }
+                     },
+                     onPlayTrack = { tracks, index ->
+-                        onPlayerIntent(PlayerIntent.PlayTracks(tracks, index))
++                        onPlayerIntent(PlayerIntent.PlayTracks(tracks, index, sourceContainerKey = requestedPlaylistId))
+                     },
+                     isImportingPlaylist = if (isOnlineMode) onlineState.isImporting else state.isImporting,
+                     onImportPlaylist = { showImportDialog = true },
+@@ -935,11 +1076,11 @@ internal fun PlaylistsTab(
+                 },
+                 onPlayAll = { tracks ->
+                     if (tracks.isNotEmpty()) {
+-                        onPlayerIntent(PlayerIntent.PlayTracks(tracks, 0))
++                        onPlayerIntent(PlayerIntent.PlayTracks(tracks, 0, sourceContainerKey = requestedPlaylistId))
+                     }
+                 },
+                 onPlayTrack = { tracks, index ->
+-                    onPlayerIntent(PlayerIntent.PlayTracks(tracks, index))
++                    onPlayerIntent(PlayerIntent.PlayTracks(tracks, index, sourceContainerKey = requestedPlaylistId))
+                 },
+                 isImportingPlaylist = if (isOnlineMode) onlineState.isImporting else state.isImporting,
+                 onImportPlaylist = { showImportDialog = true },
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/SettingsUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/SettingsUi.kt
 index 1e5fc1c..b5ff8a4 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/SettingsUi.kt
@@ -2585,19 +2695,81 @@ index 0000000..6935c00
 +// 非 Android 平台（iOS / macOS）无需开机自启，提供空实现以满足 expect/actual 多平台编译要求。
 +actual fun readAutoStartOnBoot(context: Any): Boolean = false
 +actual fun writeAutoStartOnBoot(context: Any, enabled: Boolean) = Unit
+diff --git a/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/core/model/PlaybackModels.kt b/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/core/model/PlaybackModels.kt
+index 7db32c1..83370ac 100644
+--- a/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/core/model/PlaybackModels.kt
++++ b/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/core/model/PlaybackModels.kt
+@@ -26,6 +26,12 @@ data class PlaybackSnapshot(
+     val currentNavidromeAudioQuality: NavidromeAudioQuality? = null,
+     val currentPlaybackAudioFormat: PlaybackAudioFormat? = null,
+     val errorMessage: String? = null,
++    /**
++     * 续播关联：当前播放队列来自哪个容器（文件夹/歌单的稳定ID）。
++     * 非空时内核会在切歌或定时节流时把「当前曲目+进度」写回该容器的续播记录；
++     * 为空表示当前不是容器续播场景（单曲/搜索/全局队列等），不写续播记录。
++     */
++    val sourceContainerKey: String? = null,
+ ) {
+     val currentTrack: Track?
+         get() = queue.getOrNull(currentIndex)
 diff --git a/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/data/repository/PlaybackRepositories.kt b/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/data/repository/PlaybackRepositories.kt
-index 332d1e4..ef3682c 100644
+index 332d1e4..405b0ae 100644
 --- a/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/data/repository/PlaybackRepositories.kt
 +++ b/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/data/repository/PlaybackRepositories.kt
-@@ -87,6 +87,7 @@ interface PlaybackRepository {
+@@ -70,13 +70,14 @@ import top.iwesley.lyn.music.core.model.parseEmbySongLocator
+ import top.iwesley.lyn.music.core.model.parseSubsonicCompatibleSongLocator
+ import top.iwesley.lyn.music.core.model.warn
+ import top.iwesley.lyn.music.data.db.LynMusicDatabase
++import top.iwesley.lyn.music.data.db.ContainerResumeEntity
+ import top.iwesley.lyn.music.data.db.PlaybackQueueSnapshotEntity
+ 
+ interface PlaybackRepository {
+     val snapshot: StateFlow<PlaybackSnapshot>
+ 
+     suspend fun hydratePersistedQueueIfNeeded(): PlaybackHydrationResult
+-    suspend fun playTracks(tracks: List<Track>, startIndex: Int)
++    suspend fun playTracks(tracks: List<Track>, startIndex: Int, sourceContainerKey: String? = null)
+     suspend fun playTransientTracks(tracks: List<Track>, startIndex: Int)
+     suspend fun prepareExternalPlaybackQueue(tracks: List<Track>, startIndex: Int): PlaybackSnapshot?
+     suspend fun playQueueIndex(index: Int)
+@@ -87,10 +88,36 @@ interface PlaybackRepository {
      suspend fun seekTo(positionMs: Long)
      suspend fun setVolume(volume: Float)
      suspend fun cycleMode()
 +    suspend fun setMode(mode: PlaybackMode)
      suspend fun overrideCurrentTrackArtwork(artworkLocator: String?)
      suspend fun close()
++
++    /**
++     * 读取某个容器（文件夹/歌单）在指定模式下的续播记录。
++     * 返回 null 表示没有记录（应回退到随机/从头播放）。
++     */
++    suspend fun getContainerResume(containerKey: String, mode: PlaybackMode): ContainerResumeRecord?
++
++    /**
++     * 写入某个容器在指定模式下的续播记录（曲目 + 进度）。
++     */
++    suspend fun saveContainerResume(
++        containerKey: String,
++        mode: PlaybackMode,
++        trackId: String,
++        positionMs: Long,
++    )
  }
-@@ -109,7 +110,7 @@ class DefaultPlaybackRepository(
+ 
++/**
++ * 容器续播记录领域模型（不含查询键 containerKey/mode）。
++ */
++data class ContainerResumeRecord(
++    val trackId: String,
++    val positionMs: Long,
++    val updatedAt: Long,
++)
++
+ sealed interface PlaybackHydrationResult {
+     data class Restored(
+         val loadToken: PlaybackLoadToken,
+@@ -109,7 +136,7 @@ class DefaultPlaybackRepository(
      private val scope: CoroutineScope,
      private val systemPlaybackControlsPlatformService: SystemPlaybackControlsPlatformService = UnsupportedSystemPlaybackControlsPlatformService,
      private val logger: DiagnosticLogger = NoopDiagnosticLogger,
@@ -2606,7 +2778,141 @@ index 332d1e4..ef3682c 100644
      hydrateImmediately: Boolean = true,
      private val playbackStatsReporter: PlaybackStatsReporter = NoopPlaybackStatsReporter,
      private val currentTimeMillis: () -> Long = ::now,
-@@ -511,6 +512,20 @@ class DefaultPlaybackRepository(
+@@ -289,6 +316,29 @@ class DefaultPlaybackRepository(
+                 systemPlaybackControlsPlatformService.updateSnapshot(snapshot)
+             }
+         }
++        // 续播写入：仅当当前队列关联了某个容器（文件夹/歌单）时才记录。
++        // 切歌立即写一次；同一首歌内每 15 秒节流写一次（防断电丢进度）。
++        launchLifecycleJob {
++            var lastResumeTrackId: String? = null
++            var lastResumeWriteAt = 0L
++            snapshot.collect { snapshot ->
++                val containerKey = snapshot.sourceContainerKey
++                val track = snapshot.currentTrack
++                if (containerKey == null || track == null) {
++                    lastResumeTrackId = null
++                    lastResumeWriteAt = 0L
++                    return@collect
++                }
++                val now = currentTimeMillis()
++                val trackChanged = track.id != lastResumeTrackId
++                val due = now - lastResumeWriteAt >= CONTAINER_RESUME_THROTTLE_MS
++                if (trackChanged || due) {
++                    saveContainerResume(containerKey, snapshot.mode, track.id, snapshot.positionMs)
++                    lastResumeTrackId = track.id
++                    lastResumeWriteAt = now
++                }
++            }
++        }
+     }
+ 
+     override suspend fun hydratePersistedQueueIfNeeded(): PlaybackHydrationResult =
+@@ -322,31 +372,54 @@ class DefaultPlaybackRepository(
+             result
+         }
+ 
+-    override suspend fun playTracks(tracks: List<Track>, startIndex: Int) {
++    override suspend fun playTracks(
++        tracks: List<Track>,
++        startIndex: Int,
++        sourceContainerKey: String? = null,
++    ) {
+         var loadRequest: PlaybackLoadRequest? = null
+         playbackCommandMutex.withLock {
+             if (tracks.isEmpty()) return@withLock
++            val currentSnapshot = mutableSnapshot.value
+             logger.warn(PLAYBACK_LOG_TAG) {
+                 "repository-play-tracks size=${tracks.size} startIndex=$startIndex " +
+-                    "target=${tracks.getOrNull(startIndex)?.id.orEmpty()} current=${mutableSnapshot.value.currentTrack?.id.orEmpty()} " +
+-                    "snapshotPlaying=${mutableSnapshot.value.isPlaying}"
++                    "containerKey=${sourceContainerKey.orEmpty()} mode=${currentSnapshot.mode} " +
++                    "target=${tracks.getOrNull(startIndex)?.id.orEmpty()} current=${currentSnapshot.currentTrack?.id.orEmpty()} " +
++                    "snapshotPlaying=${currentSnapshot.isPlaying}"
+             }
+-            updatePlaybackStats(mutableSnapshot.value)
+-            val currentSnapshot = mutableSnapshot.value
++            updatePlaybackStats(currentSnapshot)
++
++            // 续播：若来自某个容器且存在该模式下的记录，则从上次曲目（含进度）继续。
++            var effectiveStartIndex = startIndex
++            var effectiveStartPositionMs = 0L
++            val effectiveContainerKey: String? = sourceContainerKey
++            if (sourceContainerKey != null) {
++                val resume = runCatching { getContainerResume(sourceContainerKey, currentSnapshot.mode) }
++                    .getOrNull()
++                if (resume != null) {
++                    val naturalIndex = tracks.indexOfFirst { it.id == resume.trackId }.takeIf { it >= 0 }
++                    if (naturalIndex != null) {
++                        effectiveStartIndex = naturalIndex
++                        // 含进度：从记录的播放位置继续（按 15s 节流落库，最多回退约 15s）。
++                        effectiveStartPositionMs = resume.positionMs.coerceAtLeast(0L)
++                    }
++                }
++            }
++
+             currentQueueIsTransient = false
+             ignoreCurrentGatewayErrorForNextTrack()
+             val nextSnapshot = buildQueueSnapshot(
+                 tracks = tracks,
+-                startIndex = startIndex,
++                startIndex = effectiveStartIndex,
+                 currentSnapshot = currentSnapshot,
+                 isPlaying = true,
+-            )
++            ).copy(sourceContainerKey = effectiveContainerKey)
+             val target = nextSnapshot.currentTrack ?: return@withLock
+             mutableSnapshot.value = nextSnapshot
+             loadRequest = createLoadRequest(
+                 track = target,
+                 playWhenReady = true,
+-                startPositionMs = 0L,
++                startPositionMs = effectiveStartPositionMs,
+             )
+         }
+         loadRequest?.let {
+@@ -355,6 +428,40 @@ class DefaultPlaybackRepository(
+         }
+     }
+ 
++    override suspend fun getContainerResume(
++        containerKey: String,
++        mode: PlaybackMode,
++    ): ContainerResumeRecord? {
++        return runCatching {
++            database.containerResumeDao().get(containerKey, mode.name)
++        }.getOrNull()?.let { entity ->
++            ContainerResumeRecord(
++                trackId = entity.trackId,
++                positionMs = entity.positionMs,
++                updatedAt = entity.updatedAt,
++            )
++        }
++    }
++
++    override suspend fun saveContainerResume(
++        containerKey: String,
++        mode: PlaybackMode,
++        trackId: String,
++        positionMs: Long,
++    ) {
++        runCatching {
++            database.containerResumeDao().upsert(
++                ContainerResumeEntity(
++                    containerKey = containerKey,
++                    mode = mode.name,
++                    trackId = trackId,
++                    positionMs = positionMs,
++                    updatedAt = currentTimeMillis(),
++                ),
++            )
++        }
++    }
++
+     override suspend fun playTransientTracks(tracks: List<Track>, startIndex: Int) {
+         var loadRequest: PlaybackLoadRequest? = null
+         playbackCommandMutex.withLock {
+@@ -511,6 +618,20 @@ class DefaultPlaybackRepository(
          }
      }
  
@@ -2627,7 +2933,7 @@ index 332d1e4..ef3682c 100644
      override suspend fun overrideCurrentTrackArtwork(artworkLocator: String?) {
          playbackCommandMutex.withLock {
              val snapshot = mutableSnapshot.value
-@@ -690,6 +705,16 @@ class DefaultPlaybackRepository(
+@@ -690,6 +811,16 @@ class DefaultPlaybackRepository(
              persisted.currentIndex.coerceIn(0, queueIds.lastIndex),
          )
          val mode = persisted.mode.toPlaybackMode()
@@ -2644,7 +2950,7 @@ index 332d1e4..ef3682c 100644
          val playWhenReady = playbackPreferencesStore.autoPlayOnStartup.value
          var loadRequest: PlaybackLoadRequest? = null
          var shouldApplyRestore = false
-@@ -699,14 +724,14 @@ class DefaultPlaybackRepository(
+@@ -699,14 +830,14 @@ class DefaultPlaybackRepository(
              } else {
                  shouldApplyRestore = true
                  mutableSnapshot.value = PlaybackSnapshot(
@@ -2662,7 +2968,7 @@ index 332d1e4..ef3682c 100644
                      canSeek = false,
                      volume = mutableSnapshot.value.volume,
                      metadataTitle = null,
-@@ -715,7 +740,7 @@ class DefaultPlaybackRepository(
+@@ -715,7 +846,7 @@ class DefaultPlaybackRepository(
                      metadataArtworkLocator = null,
                  )
                  loadRequest = createLoadRequest(
@@ -2671,8 +2977,18 @@ index 332d1e4..ef3682c 100644
                      playWhenReady = playWhenReady,
                      startPositionMs = persisted.positionMs,
                  )
+@@ -1145,6 +1276,9 @@ data class PlayerRuntimeServices(
+ 
+ private fun now(): Long = Clock.System.now().toEpochMilliseconds()
+ 
++/** 续播记录写入节流：同一首歌内至少间隔这么久才再次落库（防断电丢进度，又不至于频繁写库）。 */
++private const val CONTAINER_RESUME_THROTTLE_MS = 15_000L
++
+ internal fun remotePlaybackSourceIds(
+     queue: List<Track>,
+     orderedQueue: List<Track>,
 diff --git a/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/feature/player/PlayerStore.kt b/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/feature/player/PlayerStore.kt
-index 0d86686..c1d36c2 100644
+index 0d86686..5b3efbf 100644
 --- a/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/feature/player/PlayerStore.kt
 +++ b/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/feature/player/PlayerStore.kt
 @@ -80,6 +80,8 @@ fun normalizeSleepTimerMinutes(minutes: Int): Int? {
@@ -2684,7 +3000,20 @@ index 0d86686..c1d36c2 100644
      val isQueueVisible: Boolean = false,
      val isLyricsLoading: Boolean = false,
      val hasLyricsLookupCompleted: Boolean = false,
-@@ -189,6 +191,7 @@ sealed interface PlayerIntent {
+@@ -180,7 +182,11 @@ data class PlayerState(
+ }
+ 
+ sealed interface PlayerIntent {
+-    data class PlayTracks(val tracks: List<Track>, val startIndex: Int) : PlayerIntent
++    data class PlayTracks(
++        val tracks: List<Track>,
++        val startIndex: Int,
++        val sourceContainerKey: String? = null,
++    ) : PlayerIntent
+     data class PlayTransientTracks(val tracks: List<Track>, val startIndex: Int) : PlayerIntent
+     data class PlayQueueIndex(val index: Int) : PlayerIntent
+     data object TogglePlayPause : PlayerIntent
+@@ -189,6 +195,7 @@ sealed interface PlayerIntent {
      data class SeekTo(val positionMs: Long) : PlayerIntent
      data class SetVolume(val value: Float) : PlayerIntent
      data object CycleMode : PlayerIntent
@@ -2692,7 +3021,7 @@ index 0d86686..c1d36c2 100644
      data class StartSleepTimer(val minutes: Int) : PlayerIntent
      data object CancelSleepTimer : PlayerIntent
      data object OpenCastSheet : PlayerIntent
-@@ -199,6 +202,7 @@ sealed interface PlayerIntent {
+@@ -199,6 +206,7 @@ sealed interface PlayerIntent {
      data object ClearCastMessage : PlayerIntent
      data object CastNotificationPermissionDenied : PlayerIntent
      data class ExpandedChanged(val value: Boolean) : PlayerIntent
@@ -2700,7 +3029,16 @@ index 0d86686..c1d36c2 100644
      data class QueueVisibilityChanged(val value: Boolean) : PlayerIntent
      data object OpenManualLyricsSearch : PlayerIntent
      data object DismissManualLyricsSearch : PlayerIntent
-@@ -335,6 +339,7 @@ class PlayerStore(
+@@ -326,7 +334,7 @@ class PlayerStore(
+ 
+     override suspend fun handleIntent(intent: PlayerIntent) {
+         when (intent) {
+-            is PlayerIntent.PlayTracks -> playTracks(intent.tracks, intent.startIndex)
++            is PlayerIntent.PlayTracks -> playTracks(intent.tracks, intent.startIndex, intent.sourceContainerKey)
+             is PlayerIntent.PlayTransientTracks -> playTransientTracks(intent.tracks, intent.startIndex)
+             is PlayerIntent.PlayQueueIndex -> playQueueIndex(intent.index)
+             PlayerIntent.TogglePlayPause -> togglePlayPause()
+@@ -335,6 +343,7 @@ class PlayerStore(
              is PlayerIntent.SeekTo -> seekTo(intent.positionMs)
              is PlayerIntent.SetVolume -> playbackRepository.setVolume(intent.value)
              PlayerIntent.CycleMode -> playbackRepository.cycleMode()
@@ -2708,7 +3046,7 @@ index 0d86686..c1d36c2 100644
              is PlayerIntent.StartSleepTimer -> startSleepTimer(intent.minutes)
              PlayerIntent.CancelSleepTimer -> cancelSleepTimer()
              PlayerIntent.OpenCastSheet -> openCastSheet()
-@@ -347,6 +352,7 @@ class PlayerStore(
+@@ -347,6 +356,7 @@ class PlayerStore(
                  it.copy(message = "通知权限未开启，后台投屏通知可能不显示。")
              }
              is PlayerIntent.ExpandedChanged -> updateState { it.copy(isExpanded = intent.value) }
@@ -2716,39 +3054,230 @@ index 0d86686..c1d36c2 100644
              is PlayerIntent.QueueVisibilityChanged -> updateState {
                  it.copy(isQueueVisible = intent.value && it.snapshot.currentTrack != null)
              }
+@@ -396,14 +406,19 @@ class PlayerStore(
+         }
+     }
+ 
+-    private suspend fun playTracks(tracks: List<Track>, startIndex: Int) {
++    private suspend fun playTracks(
++        tracks: List<Track>,
++        startIndex: Int,
++        sourceContainerKey: String? = null,
++    ) {
+         logger.warn(PLAYER_LOG_TAG) {
+             "store-play-tracks size=${tracks.size} startIndex=$startIndex " +
++                "containerKey=${sourceContainerKey.orEmpty()} " +
+                 "target=${tracks.getOrNull(startIndex)?.id.orEmpty()} " +
+                 "castStatus=${state.value.castState.status} selectedCast=${state.value.castState.selectedDeviceId.orEmpty()}"
+         }
+         if (!hasRemoteCastRoute()) {
+-            playbackRepository.playTracks(tracks, startIndex)
++            playbackRepository.playTracks(tracks, startIndex, sourceContainerKey)
+             return
+         }
+         if (tracks.isEmpty()) return
 diff --git a/player/core/src/commonTest/kotlin/top/iwesley/lyn/music/feature/player/PlayerStoreLyricsShareTest.kt b/player/core/src/commonTest/kotlin/top/iwesley/lyn/music/feature/player/PlayerStoreLyricsShareTest.kt
-index deae7e0..f748fe2 100644
+index deae7e0..ca22ee9 100644
 --- a/player/core/src/commonTest/kotlin/top/iwesley/lyn/music/feature/player/PlayerStoreLyricsShareTest.kt
 +++ b/player/core/src/commonTest/kotlin/top/iwesley/lyn/music/feature/player/PlayerStoreLyricsShareTest.kt
-@@ -1196,6 +1196,7 @@ private class FakeLyricsSharePlaybackRepository(
+@@ -1175,7 +1175,11 @@ private class FakeLyricsSharePlaybackRepository(
+ 
+     override suspend fun hydratePersistedQueueIfNeeded() = PlaybackHydrationResult.Empty
+ 
+-    override suspend fun playTracks(tracks: List<Track>, startIndex: Int) = Unit
++    override suspend fun playTracks(
++        tracks: List<Track>,
++        startIndex: Int,
++        sourceContainerKey: String? = null,
++    ) = Unit
+ 
+     override suspend fun playTransientTracks(tracks: List<Track>, startIndex: Int) = Unit
+ 
+@@ -1196,6 +1200,19 @@ private class FakeLyricsSharePlaybackRepository(
      override suspend fun setVolume(volume: Float) = Unit
  
      override suspend fun cycleMode() = Unit
 +    override suspend fun setMode(mode: PlaybackMode) = Unit
++
++    override suspend fun getContainerResume(
++        containerKey: String,
++        mode: PlaybackMode,
++    ): top.iwesley.lyn.music.data.repository.ContainerResumeRecord? = null
++
++    override suspend fun saveContainerResume(
++        containerKey: String,
++        mode: PlaybackMode,
++        trackId: String,
++        positionMs: Long,
++    ) = Unit
  
      override suspend fun overrideCurrentTrackArtwork(artworkLocator: String?) = Unit
  
 diff --git a/player/core/src/commonTest/kotlin/top/iwesley/lyn/music/feature/player/PlayerStoreQueueTest.kt b/player/core/src/commonTest/kotlin/top/iwesley/lyn/music/feature/player/PlayerStoreQueueTest.kt
-index 2777fee..5edb6c1 100644
+index 2777fee..2265bfe 100644
 --- a/player/core/src/commonTest/kotlin/top/iwesley/lyn/music/feature/player/PlayerStoreQueueTest.kt
 +++ b/player/core/src/commonTest/kotlin/top/iwesley/lyn/music/feature/player/PlayerStoreQueueTest.kt
-@@ -1485,6 +1485,7 @@ private class FakeQueuePlaybackRepository(
+@@ -1408,7 +1408,11 @@ private class FakeQueuePlaybackRepository(
+         return hydrationResult
+     }
+ 
+-    override suspend fun playTracks(tracks: List<Track>, startIndex: Int) {
++    override suspend fun playTracks(
++        tracks: List<Track>,
++        startIndex: Int,
++        sourceContainerKey: String? = null,
++    ) {
+         lastPlayTracks = tracks
+         lastPlayStartIndex = startIndex
+         val targetIndex = startIndex.coerceIn(0, tracks.lastIndex)
+@@ -1485,6 +1489,19 @@ private class FakeQueuePlaybackRepository(
      override suspend fun setVolume(volume: Float) = Unit
  
      override suspend fun cycleMode() = Unit
 +    override suspend fun setMode(mode: PlaybackMode) = Unit
++
++    override suspend fun getContainerResume(
++        containerKey: String,
++        mode: PlaybackMode,
++    ): top.iwesley.lyn.music.data.repository.ContainerResumeRecord? = null
++
++    override suspend fun saveContainerResume(
++        containerKey: String,
++        mode: PlaybackMode,
++        trackId: String,
++        positionMs: Long,
++    ) = Unit
  
      override suspend fun overrideCurrentTrackArtwork(artworkLocator: String?) {
          lastArtworkOverride = artworkLocator
+diff --git a/shared/data/src/commonMain/kotlin/top/iwesley/lyn/music/data/db/Database.kt b/shared/data/src/commonMain/kotlin/top/iwesley/lyn/music/data/db/Database.kt
+index f11e827..c4fdd76 100644
+--- a/shared/data/src/commonMain/kotlin/top/iwesley/lyn/music/data/db/Database.kt
++++ b/shared/data/src/commonMain/kotlin/top/iwesley/lyn/music/data/db/Database.kt
+@@ -5,6 +5,8 @@ import androidx.room.Dao
+ import androidx.room.Database
+ import androidx.room.Entity
+ import androidx.room.Index
++import androidx.room.Insert
++import androidx.room.OnConflictStrategy
+ import androidx.room.PrimaryKey
+ import androidx.room.Query
+ import androidx.room.RoomDatabase
+@@ -171,6 +173,23 @@ data class PlaybackQueueSnapshotEntity(
+     val updatedAt: Long,
+ )
+ 
++/**
++ * 容器续播记录：每个「文件夹 / 歌单」在「顺序 / 随机」两种模式下各存一条，
++ * 记录上次听到的曲目与播放进度，下次重播时从该曲继续。
++ * 主键为 (containerKey, mode) —— 容器稳定ID + 播放模式。
++ */
++@Entity(
++    tableName = "container_resume",
++    primaryKeys = ["containerKey", "mode"],
++)
++data class ContainerResumeEntity(
++    val containerKey: String,
++    val mode: String,
++    val trackId: String,
++    val positionMs: Long,
++    val updatedAt: Long,
++)
++
+ @Entity(tableName = "favorite_track")
+ data class FavoriteTrackEntity(
+     @PrimaryKey val trackId: String,
+@@ -575,6 +594,24 @@ interface PlaybackQueueSnapshotDao {
+     ): Int
+ }
+ 
++@Dao
++interface ContainerResumeDao {
++    @Query(
++        """
++        SELECT * FROM container_resume
++        WHERE containerKey = :containerKey AND mode = :mode
++        LIMIT 1
++        """,
++    )
++    suspend fun get(containerKey: String, mode: String): ContainerResumeEntity?
++
++    @Insert(onConflict = OnConflictStrategy.REPLACE)
++    suspend fun upsert(item: ContainerResumeEntity)
++
++    @Query("DELETE FROM container_resume WHERE containerKey = :containerKey")
++    suspend fun deleteByContainerKey(containerKey: String)
++}
++
+ @Dao
+ interface FavoriteTrackDao {
+     @Query("SELECT * FROM favorite_track ORDER BY favoritedAt DESC, trackId ASC")
+@@ -840,8 +877,9 @@ interface OfflineDownloadDao {
+         LyricsCacheEntity::class,
+         OfflineDownloadEntity::class,
+         ImportTrackStageEntity::class,
++        ContainerResumeEntity::class,
+     ],
+-    version = 19,
++    version = 20,
+ )
+ @ConstructedBy(LynMusicDatabaseConstructor::class)
+ abstract class LynMusicDatabase : RoomDatabase() {
+@@ -863,6 +901,7 @@ abstract class LynMusicDatabase : RoomDatabase() {
+     abstract fun workflowLyricsSourceConfigDao(): WorkflowLyricsSourceConfigDao
+     abstract fun lyricsCacheDao(): LyricsCacheDao
+     abstract fun offlineDownloadDao(): OfflineDownloadDao
++    abstract fun containerResumeDao(): ContainerResumeDao
+ }
+ 
+ @Suppress("KotlinNoActualForExpect")
+@@ -892,6 +931,7 @@ fun buildLynMusicDatabase(builder: Builder<LynMusicDatabase>): LynMusicDatabase
+         .addMigrations(MIGRATION_16_17)
+         .addMigrations(MIGRATION_17_18)
+         .addMigrations(MIGRATION_18_19)
++        .addMigrations(MIGRATION_19_20)
+         .build()
+ }
+ 
+@@ -1206,6 +1246,23 @@ val MIGRATION_18_19: Migration = object : Migration(18, 19) {
+     }
+ }
+ 
++val MIGRATION_19_20: Migration = object : Migration(19, 20) {
++    override fun migrate(connection: SQLiteConnection) {
++        connection.execSql(
++            """
++            CREATE TABLE IF NOT EXISTS container_resume (
++                containerKey TEXT NOT NULL,
++                mode TEXT NOT NULL,
++                trackId TEXT NOT NULL,
++                positionMs INTEGER NOT NULL,
++                updatedAt INTEGER NOT NULL,
++                PRIMARY KEY (containerKey, mode)
++            )
++            """.trimIndent(),
++        )
++    }
++}
++
+ fun SQLiteConnection.createImportTrackStageTable() {
+     execSql(
+         """
 diff --git a/shared/features/src/commonMain/kotlin/top/iwesley/lyn/music/feature/library/LibraryBrowserUiModels.kt b/shared/features/src/commonMain/kotlin/top/iwesley/lyn/music/feature/library/LibraryBrowserUiModels.kt
-index d91cb79..3fcf3cf 100644
+index d91cb79..9a27c1a 100644
 --- a/shared/features/src/commonMain/kotlin/top/iwesley/lyn/music/feature/library/LibraryBrowserUiModels.kt
 +++ b/shared/features/src/commonMain/kotlin/top/iwesley/lyn/music/feature/library/LibraryBrowserUiModels.kt
-@@ -125,6 +125,8 @@ data class LibraryBrowserActions(
+@@ -125,6 +125,14 @@ data class LibraryBrowserActions(
      val onAlbumClick: (LibraryAlbumUiItem) -> Unit = {},
      val onArtistClick: (LibraryArtistUiItem) -> Unit = {},
      val onPlayTracks: (List<Track>, Int) -> Unit = { _, _ -> },
 +    val onSelectPlayMode: (shuffle: Boolean) -> Unit = {},
++    /**
++     * 容器续播入口：从某个文件夹/歌单播放全部时调用，携带容器稳定ID。
++     * 内核据此读取该容器的续播记录（顺序/随机分别记录），从上次曲目继续，
++     * 并在播放中持续写回进度。默认空实现，对未接入的调用方零影响。
++     */
++    val onPlayContainerResumed: (containerKey: String, tracks: List<Track>, shuffle: Boolean) -> Unit = { _, _, _ -> },
 +    val onGeneratePlaylist: ((tracks: List<Track>, defaultName: String) -> Unit)? = null,
  )
  

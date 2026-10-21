@@ -858,7 +858,7 @@ index 0000000..1bfc08e
 +expect fun readAutoStartOnBoot(context: Any): Boolean
 +expect fun writeAutoStartOnBoot(context: Any, enabled: Boolean)
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
-index ca2a2d3..d826ff1 100644
+index ca2a2d3..bcd1027 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
 @@ -90,10 +90,12 @@ import androidx.compose.ui.text.input.TextFieldValue
@@ -1057,7 +1057,7 @@ index ca2a2d3..d826ff1 100644
                      item {
                          SectionTitle(
                              title = "专辑",
-@@ -1583,14 +1698,63 @@ private fun LibraryBrowserTab(
+@@ -1583,14 +1698,71 @@ private fun LibraryBrowserTab(
                              artworkCacheKey = selectedFolderTracks.firstOrNull()?.let(::trackArtworkCacheKey),
                          )
                      }
@@ -1084,9 +1084,17 @@ index ca2a2d3..d826ff1 100644
 +                    actions.onGeneratePlaylist?.let { generatePlaylist ->
 +                        item {
 +                            LibraryGeneratePlaylistButton(
-+                                enabled = selectedFolderTracks.isNotEmpty(),
-+                                trackCount = selectedFolderTracks.size,
-+                                onClick = { generatePlaylist(selectedFolderTracks, selectedFolder.name) },
++                                // v26：与上面的「随|顺」统一递归口径（含全部子文件夹）。
++                                // 原来用 directTracks，于是 U 盘根目录、「01音乐」这类只装子文件夹的
++                                // 分类目录按钮会灰掉点不动 —— 与 v24 修随|顺 时同一个坑，这次是漏改的相邻按钮。
++                                enabled = selectedFolderPlayAllTracks.isNotEmpty(),
++                                trackCount = selectedFolderPlayAllTracks.size,
++                                onClick = {
++                                    generatePlaylist(
++                                        selectedFolderPlayAllTracks,
++                                        selectedFolder.name,
++                                    )
++                                },
 +                            )
 +                        }
 +                    }
@@ -1121,7 +1129,7 @@ index ca2a2d3..d826ff1 100644
                              )
                          }
                      }
-@@ -1682,6 +1846,28 @@ private fun LibraryBrowserTab(
+@@ -1682,6 +1854,28 @@ private fun LibraryBrowserTab(
                      } else {
                          when (rootView) {
                              LibraryBrowserRootView.Tracks -> {
@@ -1150,7 +1158,7 @@ index ca2a2d3..d826ff1 100644
                                  itemsIndexed(
                                      state.tracks,
                                      key = { _, item -> item.id }) { index, trackItem ->
-@@ -1704,6 +1890,7 @@ private fun LibraryBrowserTab(
+@@ -1704,6 +1898,7 @@ private fun LibraryBrowserTab(
                                          onClick = {
                                              actions.onPlayTracks(visibleTracks, index)
                                          },
@@ -1158,7 +1166,7 @@ index ca2a2d3..d826ff1 100644
                                      )
                                  }
                                  if (state.capabilities.canLoadMoreTracks) {
-@@ -1733,6 +1920,20 @@ private fun LibraryBrowserTab(
+@@ -1733,6 +1928,20 @@ private fun LibraryBrowserTab(
                                              actions.onAlbumClick(albumItem)
                                              selectedAlbumId = album.id
                                          },
@@ -1179,7 +1187,7 @@ index ca2a2d3..d826ff1 100644
                                      )
                                  }
                                  if (state.capabilities.canLoadMoreAlbums) {
-@@ -1759,6 +1960,20 @@ private fun LibraryBrowserTab(
+@@ -1759,6 +1968,20 @@ private fun LibraryBrowserTab(
                                              selectedArtistId = artist.id
                                              selectedAlbumId = null
                                          },
@@ -1200,7 +1208,7 @@ index ca2a2d3..d826ff1 100644
                                      )
                                  }
                                  if (state.capabilities.canLoadMoreArtists) {
-@@ -1777,6 +1992,24 @@ private fun LibraryBrowserTab(
+@@ -1777,6 +2000,24 @@ private fun LibraryBrowserTab(
                                      FolderRow(
                                          folder = folder,
                                          onClick = { selectFolder(folder) },
@@ -1225,7 +1233,7 @@ index ca2a2d3..d826ff1 100644
                                      )
                                  }
                              }
-@@ -1860,6 +2093,7 @@ private fun LibraryRootSelector(
+@@ -1860,6 +2101,7 @@ private fun LibraryRootSelector(
      tracksStatFocusRequester: FocusRequester,
      onSelectRootView: (LibraryBrowserRootView) -> Unit,
      onPlayAllTracks: () -> Unit,
@@ -1233,7 +1241,7 @@ index ca2a2d3..d826ff1 100644
  ) {
      when (model.style) {
          LibraryRootSelectorStyle.Default -> DefaultLibraryRootSelector(
-@@ -1877,6 +2111,7 @@ private fun LibraryRootSelector(
+@@ -1877,6 +2119,7 @@ private fun LibraryRootSelector(
              tracksStatFocusRequester = tracksStatFocusRequester,
              onSelectRootView = onSelectRootView,
              onPlayAllTracks = onPlayAllTracks,
@@ -1241,7 +1249,7 @@ index ca2a2d3..d826ff1 100644
          )
      }
  }
-@@ -1921,6 +2156,7 @@ private fun CompactLibraryRootSelector(
+@@ -1921,6 +2164,7 @@ private fun CompactLibraryRootSelector(
      tracksStatFocusRequester: FocusRequester,
      onSelectRootView: (LibraryBrowserRootView) -> Unit,
      onPlayAllTracks: () -> Unit,
@@ -1249,7 +1257,7 @@ index ca2a2d3..d826ff1 100644
  ) {
      val heroItem = model.heroItem ?: return
      Column(
-@@ -1935,6 +2171,7 @@ private fun CompactLibraryRootSelector(
+@@ -1935,6 +2179,7 @@ private fun CompactLibraryRootSelector(
              playAllEnabled = model.playAllEnabled,
              onSelectTracks = { onSelectRootView(heroItem.rootView) },
              onPlayAllTracks = onPlayAllTracks,
@@ -1257,7 +1265,7 @@ index ca2a2d3..d826ff1 100644
          )
          Row(
              modifier = Modifier.fillMaxWidth(),
-@@ -1962,6 +2199,7 @@ private fun CompactLibraryHeroCard(
+@@ -1962,6 +2207,7 @@ private fun CompactLibraryHeroCard(
      playAllEnabled: Boolean,
      onSelectTracks: () -> Unit,
      onPlayAllTracks: () -> Unit,
@@ -1265,7 +1273,7 @@ index ca2a2d3..d826ff1 100644
  ) {
      val containerColor = if (selected) {
          MaterialTheme.colorScheme.secondary
-@@ -2016,20 +2254,67 @@ private fun CompactLibraryHeroCard(
+@@ -2016,20 +2262,67 @@ private fun CompactLibraryHeroCard(
                  overflow = TextOverflow.Ellipsis,
              )
          }
@@ -1347,7 +1355,7 @@ index ca2a2d3..d826ff1 100644
          }
      }
  }
-@@ -2119,18 +2404,33 @@ private fun compactLibraryRootIcon(
+@@ -2119,18 +2412,33 @@ private fun compactLibraryRootIcon(
  private fun FolderRow(
      folder: LibraryFolderNode,
      onClick: () -> Unit,
@@ -1382,7 +1390,7 @@ index ca2a2d3..d826ff1 100644
              Box(
                  modifier = Modifier
                      .size(52.dp)
-@@ -2802,6 +3102,59 @@ internal fun SourcesTab(
+@@ -2802,6 +3110,59 @@ internal fun SourcesTab(
                  title = "导入来源",
                  subtitle = "本地文件夹原地索引，Samba、WebDAV、Navidrome、Subsonic/OpenSubsonic 与 Emby 作为远程音乐库。"
              )
@@ -1442,7 +1450,7 @@ index ca2a2d3..d826ff1 100644
              state.message?.let { message ->
                  BannerCard(message = message, onDismiss = { onImportIntent(ImportIntent.ClearMessage) })
              }
-@@ -3889,3 +4242,117 @@ internal fun remoteSourceEditorTrackCountLabel(
+@@ -3889,3 +4250,117 @@ internal fun remoteSourceEditorTrackCountLabel(
  private fun isMobileSourcesPlatform(platform: PlatformDescriptor): Boolean {
      return platform.name == "Android" || platform.name == "iPhone / iPad"
  }

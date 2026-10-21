@@ -347,7 +347,7 @@ index e25bda7..2c65a36 100644
                      modifier = Modifier
                          .fillMaxSize()
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AppCommonUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AppCommonUi.kt
-index 52cb8a2..c3c2173 100644
+index 52cb8a2..70f6973 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AppCommonUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/AppCommonUi.kt
 @@ -45,6 +45,7 @@ import androidx.compose.material.icons.rounded.GraphicEq
@@ -366,7 +366,7 @@ index 52cb8a2..c3c2173 100644
  import androidx.compose.ui.graphics.drawscope.Stroke
  import androidx.compose.ui.graphics.graphicsLayer
  import androidx.compose.ui.graphics.toPixelMap
-@@ -677,24 +679,125 @@ internal fun DetailSummaryCard(
+@@ -677,24 +679,127 @@ internal fun DetailSummaryCard(
      }
  }
  
@@ -413,24 +413,26 @@ index 52cb8a2..c3c2173 100644
 +    onShuffle: () -> Unit,
 +) {
 +    val scheme = MaterialTheme.colorScheme
++    // v24：行首「随|顺」加宽加大。原来每个只有 52dp 宽、字号 18sp，
++    // 车机上开车时很难点准（伍所反馈"列表前的随|顺 不好操作"）。现在 68dp × 行高、22sp。
 +    Row(
 +        modifier = Modifier
 +            .height(LibraryRowHeight)
-+            .widthIn(min = 104.dp)
++            .widthIn(min = 136.dp)
 +            .clip(RoundedCornerShape(16.dp))
 +            .background(scheme.surfaceVariant.copy(alpha = 0.55f)),
 +        verticalAlignment = Alignment.CenterVertically,
 +    ) {
 +        Box(
 +            modifier = Modifier
-+                .size(52.dp, LibraryRowHeight)
++                .size(68.dp, LibraryRowHeight)
 +                .clickable(onClick = onShuffle),
 +            contentAlignment = Alignment.Center,
 +        ) {
 +            Text(
 +                text = "随",
 +                color = scheme.onSurface,
-+                fontSize = 18.sp,
++                fontSize = 22.sp,
 +                fontWeight = FontWeight.Bold,
 +            )
 +        }
@@ -442,14 +444,14 @@ index 52cb8a2..c3c2173 100644
 +        )
 +        Box(
 +            modifier = Modifier
-+                .size(52.dp, LibraryRowHeight)
++                .size(68.dp, LibraryRowHeight)
 +                .clickable(onClick = onOrder),
 +            contentAlignment = Alignment.Center,
 +        ) {
 +            Text(
 +                text = "顺",
 +                color = scheme.onSurface,
-+                fontSize = 18.sp,
++                fontSize = 22.sp,
 +                fontWeight = FontWeight.Bold,
 +            )
 +        }
@@ -493,7 +495,7 @@ index 52cb8a2..c3c2173 100644
              TrackArtworkThumbnail(
                  artworkLocator = artworkLocator,
                  artworkCacheKey = artworkCacheKey,
-@@ -734,18 +837,33 @@ internal fun ArtistRow(
+@@ -734,18 +839,33 @@ internal fun ArtistRow(
      trackCount: Int?,
      albumCount: Int?,
      onClick: () -> Unit,
@@ -528,7 +530,7 @@ index 52cb8a2..c3c2173 100644
              Box(
                  modifier = Modifier
                      .size(52.dp)
-@@ -781,7 +899,7 @@ internal fun ArtistRow(
+@@ -781,7 +901,7 @@ internal fun ArtistRow(
          Box(
              modifier = Modifier
                  .fillMaxWidth()
@@ -537,7 +539,7 @@ index 52cb8a2..c3c2173 100644
                  .height(1.dp)
                  .background(shellColors.cardBorder),
          )
-@@ -814,6 +932,7 @@ internal fun TrackRow(
+@@ -814,6 +934,7 @@ internal fun TrackRow(
      selected: Boolean = false,
      onSelectionToggle: (() -> Unit)? = null,
      onClick: () -> Unit,
@@ -545,7 +547,7 @@ index 52cb8a2..c3c2173 100644
  ) {
      val shellColors = mainShellColors
      val showAlbumTitle = showDuration
-@@ -834,11 +953,19 @@ internal fun TrackRow(
+@@ -834,11 +955,19 @@ internal fun TrackRow(
              enableOfflineActions = !selectionMode,
              modifier = Modifier
                  .fillMaxWidth()
@@ -566,7 +568,7 @@ index 52cb8a2..c3c2173 100644
              if (selectionMode) {
                  Checkbox(
                      checked = selected,
-@@ -2056,6 +2183,7 @@ private fun HalfOutRecordArtwork(
+@@ -2056,6 +2185,7 @@ private fun HalfOutRecordArtwork(
      val recordSize = artworkSize * 0.86f
      val sleeveRadius = artworkSize * 0.035f
      val rotation = remember { Animatable(0f) }
@@ -574,7 +576,7 @@ index 52cb8a2..c3c2173 100644
      LaunchedEffect(spinning) {
          if (!spinning) return@LaunchedEffect
          while (true) {
-@@ -2064,7 +2192,7 @@ private fun HalfOutRecordArtwork(
+@@ -2064,7 +2194,7 @@ private fun HalfOutRecordArtwork(
              rotation.animateTo(
                  targetValue = start + 360f,
                  animationSpec = tween(
@@ -583,7 +585,7 @@ index 52cb8a2..c3c2173 100644
                      easing = LinearEasing,
                  ),
              )
-@@ -2142,39 +2270,30 @@ private fun HalfOutRecordDisc(
+@@ -2142,39 +2272,30 @@ private fun HalfOutRecordDisc(
          modifier = modifier,
          contentAlignment = Alignment.Center,
      ) {
@@ -645,7 +647,7 @@ index 52cb8a2..c3c2173 100644
          Canvas(modifier = Modifier.fillMaxSize()) {
              val radius = min(size.width, size.height) / 2f
              drawCircle(
-@@ -2188,15 +2307,26 @@ private fun HalfOutRecordDisc(
+@@ -2188,15 +2309,26 @@ private fun HalfOutRecordDisc(
                  ),
                  radius = radius,
              )
@@ -675,7 +677,7 @@ index 52cb8a2..c3c2173 100644
                      )
                  }
              }
-@@ -2223,36 +2353,76 @@ private fun HalfOutRecordDisc(
+@@ -2223,36 +2355,76 @@ private fun HalfOutRecordDisc(
                  radius = radius * 0.052f,
              )
          }
@@ -856,7 +858,7 @@ index 0000000..1bfc08e
 +expect fun readAutoStartOnBoot(context: Any): Boolean
 +expect fun writeAutoStartOnBoot(context: Any, enabled: Boolean)
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
-index ca2a2d3..6535147 100644
+index ca2a2d3..d826ff1 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/LibrarySourcesUi.kt
 @@ -90,10 +90,12 @@ import androidx.compose.ui.text.input.TextFieldValue
@@ -965,7 +967,21 @@ index ca2a2d3..6535147 100644
  internal fun deriveLibraryFolderTree(
      tracks: List<Track>,
      sourceLabelsById: Map<String, String>,
-@@ -1391,6 +1444,13 @@ private fun LibraryBrowserTab(
+@@ -897,6 +950,13 @@ private fun LibraryBrowserTab(
+     val selectedFolder = selectedFolderKey?.let { folderTree.nodesByKey[it] }
+     val selectedFolderChildren = selectedFolderKey?.let { folderTree.childFoldersByKey[it].orEmpty() }.orEmpty()
+     val selectedFolderTracks = selectedFolderKey?.let { folderTree.directTracksByKey[it].orEmpty() }.orEmpty()
++    // v24：文件夹详情页顶部「随机播放 / 顺序播放」改用**递归口径**（含全部子文件夹），
++    // 与列表行首那个方形按钮完全一致。原来只播 directTracks，于是 U 盘根目录、「01音乐」
++    // 这类只装子文件夹、没有直接歌曲的分类目录，按钮会退化成灰掉的「播放全部（从头开始）」
++    // 且点不动 —— 这就是"不是每个目录下都有随|顺"的原因。
++    val selectedFolderPlayAllTracks = remember(selectedFolderKey, folderTree) {
++        selectedFolderKey?.let { folderTree.collectTracksRecursively(it) }.orEmpty()
++    }
+     val selectedFolderDetailItemCount = if (selectedFolder == null) {
+         0
+     } else {
+@@ -1391,6 +1451,13 @@ private fun LibraryBrowserTab(
                      onSelectRootView = ::selectRootView,
                      onPlayAllTracks = {
                          if (visibleTracks.isNotEmpty()) {
@@ -979,7 +995,7 @@ index ca2a2d3..6535147 100644
                              actions.onPlayTracks(visibleTracks, 0)
                          }
                      },
-@@ -1423,6 +1483,28 @@ private fun LibraryBrowserTab(
+@@ -1423,6 +1490,28 @@ private fun LibraryBrowserTab(
                              artworkCacheKey = albumTracks.firstOrNull()?.let(::trackArtworkCacheKey),
                          )
                      }
@@ -1008,7 +1024,7 @@ index ca2a2d3..6535147 100644
                      item {
                          SectionTitle(title = "歌曲", subtitle = "当前专辑下的可见歌曲。")
                      }
-@@ -1489,6 +1571,32 @@ private fun LibraryBrowserTab(
+@@ -1489,6 +1578,32 @@ private fun LibraryBrowserTab(
                              },
                          )
                      }
@@ -1041,18 +1057,27 @@ index ca2a2d3..6535147 100644
                      item {
                          SectionTitle(
                              title = "专辑",
-@@ -1583,14 +1691,54 @@ private fun LibraryBrowserTab(
+@@ -1583,14 +1698,63 @@ private fun LibraryBrowserTab(
                              artworkCacheKey = selectedFolderTracks.firstOrNull()?.let(::trackArtworkCacheKey),
                          )
                      }
 +                    item {
 +                        LibraryDetailPlayAllButton(
-+                            enabled = selectedFolderTracks.isNotEmpty(),
++                            // v24：用递归曲目判断可用性 —— 只要这个目录（含子目录）里有歌，随|顺 就可用
++                            enabled = selectedFolderPlayAllTracks.isNotEmpty(),
 +                            onPlayAll = {
-+                                actions.onPlayContainerResumed(selectedFolder.key.stableId, selectedFolderTracks, true)
++                                actions.onPlayContainerResumed(
++                                    selectedFolder.key.stableId,
++                                    selectedFolderPlayAllTracks,
++                                    true,
++                                )
 +                            },
 +                            onPlayOrder = {
-+                                actions.onPlayContainerResumed(selectedFolder.key.stableId, selectedFolderTracks, false)
++                                actions.onPlayContainerResumed(
++                                    selectedFolder.key.stableId,
++                                    selectedFolderPlayAllTracks,
++                                    false,
++                                )
 +                            },
 +                        )
 +                    }
@@ -1096,7 +1121,7 @@ index ca2a2d3..6535147 100644
                              )
                          }
                      }
-@@ -1682,6 +1830,28 @@ private fun LibraryBrowserTab(
+@@ -1682,6 +1846,28 @@ private fun LibraryBrowserTab(
                      } else {
                          when (rootView) {
                              LibraryBrowserRootView.Tracks -> {
@@ -1125,7 +1150,7 @@ index ca2a2d3..6535147 100644
                                  itemsIndexed(
                                      state.tracks,
                                      key = { _, item -> item.id }) { index, trackItem ->
-@@ -1704,6 +1874,7 @@ private fun LibraryBrowserTab(
+@@ -1704,6 +1890,7 @@ private fun LibraryBrowserTab(
                                          onClick = {
                                              actions.onPlayTracks(visibleTracks, index)
                                          },
@@ -1133,7 +1158,7 @@ index ca2a2d3..6535147 100644
                                      )
                                  }
                                  if (state.capabilities.canLoadMoreTracks) {
-@@ -1733,6 +1904,20 @@ private fun LibraryBrowserTab(
+@@ -1733,6 +1920,20 @@ private fun LibraryBrowserTab(
                                              actions.onAlbumClick(albumItem)
                                              selectedAlbumId = album.id
                                          },
@@ -1154,7 +1179,7 @@ index ca2a2d3..6535147 100644
                                      )
                                  }
                                  if (state.capabilities.canLoadMoreAlbums) {
-@@ -1759,6 +1944,20 @@ private fun LibraryBrowserTab(
+@@ -1759,6 +1960,20 @@ private fun LibraryBrowserTab(
                                              selectedArtistId = artist.id
                                              selectedAlbumId = null
                                          },
@@ -1175,7 +1200,7 @@ index ca2a2d3..6535147 100644
                                      )
                                  }
                                  if (state.capabilities.canLoadMoreArtists) {
-@@ -1777,6 +1976,24 @@ private fun LibraryBrowserTab(
+@@ -1777,6 +1992,24 @@ private fun LibraryBrowserTab(
                                      FolderRow(
                                          folder = folder,
                                          onClick = { selectFolder(folder) },
@@ -1200,7 +1225,7 @@ index ca2a2d3..6535147 100644
                                      )
                                  }
                              }
-@@ -1860,6 +2077,7 @@ private fun LibraryRootSelector(
+@@ -1860,6 +2093,7 @@ private fun LibraryRootSelector(
      tracksStatFocusRequester: FocusRequester,
      onSelectRootView: (LibraryBrowserRootView) -> Unit,
      onPlayAllTracks: () -> Unit,
@@ -1208,7 +1233,7 @@ index ca2a2d3..6535147 100644
  ) {
      when (model.style) {
          LibraryRootSelectorStyle.Default -> DefaultLibraryRootSelector(
-@@ -1877,6 +2095,7 @@ private fun LibraryRootSelector(
+@@ -1877,6 +2111,7 @@ private fun LibraryRootSelector(
              tracksStatFocusRequester = tracksStatFocusRequester,
              onSelectRootView = onSelectRootView,
              onPlayAllTracks = onPlayAllTracks,
@@ -1216,7 +1241,7 @@ index ca2a2d3..6535147 100644
          )
      }
  }
-@@ -1921,6 +2140,7 @@ private fun CompactLibraryRootSelector(
+@@ -1921,6 +2156,7 @@ private fun CompactLibraryRootSelector(
      tracksStatFocusRequester: FocusRequester,
      onSelectRootView: (LibraryBrowserRootView) -> Unit,
      onPlayAllTracks: () -> Unit,
@@ -1224,7 +1249,7 @@ index ca2a2d3..6535147 100644
  ) {
      val heroItem = model.heroItem ?: return
      Column(
-@@ -1935,6 +2155,7 @@ private fun CompactLibraryRootSelector(
+@@ -1935,6 +2171,7 @@ private fun CompactLibraryRootSelector(
              playAllEnabled = model.playAllEnabled,
              onSelectTracks = { onSelectRootView(heroItem.rootView) },
              onPlayAllTracks = onPlayAllTracks,
@@ -1232,7 +1257,7 @@ index ca2a2d3..6535147 100644
          )
          Row(
              modifier = Modifier.fillMaxWidth(),
-@@ -1962,6 +2183,7 @@ private fun CompactLibraryHeroCard(
+@@ -1962,6 +2199,7 @@ private fun CompactLibraryHeroCard(
      playAllEnabled: Boolean,
      onSelectTracks: () -> Unit,
      onPlayAllTracks: () -> Unit,
@@ -1240,7 +1265,7 @@ index ca2a2d3..6535147 100644
  ) {
      val containerColor = if (selected) {
          MaterialTheme.colorScheme.secondary
-@@ -2016,20 +2238,66 @@ private fun CompactLibraryHeroCard(
+@@ -2016,20 +2254,67 @@ private fun CompactLibraryHeroCard(
                  overflow = TextOverflow.Ellipsis,
              )
          }
@@ -1261,8 +1286,9 @@ index ca2a2d3..6535147 100644
 +        if (playAllEnabled && onPlayOrderTracks != null) {
 +            Row(
 +                modifier = Modifier
-+                    .height(60.dp)
-+                    .width(116.dp)
++                    .height(64.dp)
++                    // v24：随|顺 加宽 + 字号加大，车机上更好点准
++                    .width(140.dp)
 +                    .clip(RoundedCornerShape(16.dp))
 +                    .background(contentColor.copy(alpha = 0.18f)),
 +                verticalAlignment = Alignment.CenterVertically,
@@ -1277,7 +1303,7 @@ index ca2a2d3..6535147 100644
 +                    Text(
 +                        text = "随",
 +                        color = contentColor,
-+                        fontSize = 18.sp,
++                        fontSize = 20.sp,
 +                        fontWeight = FontWeight.Bold,
 +                    )
 +                }
@@ -1297,7 +1323,7 @@ index ca2a2d3..6535147 100644
 +                    Text(
 +                        text = "顺",
 +                        color = contentColor,
-+                        fontSize = 18.sp,
++                        fontSize = 20.sp,
 +                        fontWeight = FontWeight.Bold,
 +                    )
 +                }
@@ -1321,7 +1347,7 @@ index ca2a2d3..6535147 100644
          }
      }
  }
-@@ -2119,18 +2387,33 @@ private fun compactLibraryRootIcon(
+@@ -2119,18 +2404,33 @@ private fun compactLibraryRootIcon(
  private fun FolderRow(
      folder: LibraryFolderNode,
      onClick: () -> Unit,
@@ -1356,7 +1382,7 @@ index ca2a2d3..6535147 100644
              Box(
                  modifier = Modifier
                      .size(52.dp)
-@@ -2802,6 +3085,59 @@ internal fun SourcesTab(
+@@ -2802,6 +3102,59 @@ internal fun SourcesTab(
                  title = "导入来源",
                  subtitle = "本地文件夹原地索引，Samba、WebDAV、Navidrome、Subsonic/OpenSubsonic 与 Emby 作为远程音乐库。"
              )
@@ -1416,7 +1442,7 @@ index ca2a2d3..6535147 100644
              state.message?.let { message ->
                  BannerCard(message = message, onDismiss = { onImportIntent(ImportIntent.ClearMessage) })
              }
-@@ -3889,3 +4225,117 @@ internal fun remoteSourceEditorTrackCountLabel(
+@@ -3889,3 +4242,117 @@ internal fun remoteSourceEditorTrackCountLabel(
  private fun isMobileSourcesPlatform(platform: PlatformDescriptor): Boolean {
      return platform.name == "Android" || platform.name == "iPhone / iPad"
  }
@@ -1934,14 +1960,11 @@ index 1e5fc1c..b5ff8a4 100644
              MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
                  Row(
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
-index 1aa0ba8..259a6fd 100644
+index 1aa0ba8..d2e003d 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
-@@ -1,11 +1,14 @@
- package top.iwesley.lyn.music.automotive
- 
+@@ -3,9 +3,11 @@ package top.iwesley.lyn.music.automotive
  import androidx.compose.animation.core.FastOutSlowInEasing
-+import androidx.compose.animation.core.animateDpAsState
  import androidx.compose.animation.core.animateFloatAsState
  import androidx.compose.animation.core.tween
 +import androidx.compose.foundation.basicMarquee
@@ -1952,7 +1975,7 @@ index 1aa0ba8..259a6fd 100644
  import androidx.compose.foundation.interaction.MutableInteractionSource
  import androidx.compose.foundation.layout.Arrangement
  import androidx.compose.foundation.layout.Box
-@@ -23,22 +26,26 @@ import androidx.compose.foundation.layout.size
+@@ -23,22 +25,26 @@ import androidx.compose.foundation.layout.size
  import androidx.compose.foundation.layout.width
  import androidx.compose.material.icons.Icons
  import androidx.compose.material.icons.automirrored.rounded.QueueMusic
@@ -1980,16 +2003,15 @@ index 1aa0ba8..259a6fd 100644
  import androidx.compose.runtime.getValue
  import androidx.compose.runtime.mutableStateOf
  import androidx.compose.runtime.remember
-@@ -46,6 +53,8 @@ import androidx.compose.runtime.rememberUpdatedState
+@@ -46,6 +52,7 @@ import androidx.compose.runtime.rememberUpdatedState
  import androidx.compose.runtime.setValue
  import androidx.compose.ui.Alignment
  import androidx.compose.ui.Modifier
-+import androidx.compose.ui.draw.alpha
 +import androidx.compose.ui.draw.clipToBounds
  import androidx.compose.ui.geometry.CornerRadius
  import androidx.compose.ui.geometry.Offset
  import androidx.compose.ui.geometry.Size
-@@ -57,13 +66,21 @@ import androidx.compose.ui.input.pointer.PointerEventPass
+@@ -57,13 +64,20 @@ import androidx.compose.ui.input.pointer.PointerEventPass
  import androidx.compose.ui.input.pointer.PointerId
  import androidx.compose.ui.input.pointer.PointerInputScope
  import androidx.compose.ui.input.pointer.pointerInput
@@ -2002,7 +2024,6 @@ index 1aa0ba8..259a6fd 100644
  import androidx.compose.ui.unit.Dp
 +import androidx.compose.ui.unit.Constraints
 +import kotlin.time.Clock
-+import kotlinx.coroutines.delay
 +import kotlinx.datetime.TimeZone
 +import kotlinx.datetime.toLocalDateTime
  import androidx.compose.ui.unit.IntOffset
@@ -2011,7 +2032,7 @@ index 1aa0ba8..259a6fd 100644
  import kotlin.math.roundToInt
  import kotlin.math.roundToLong
  import top.iwesley.lyn.music.ArtworkDecodeSize
-@@ -74,6 +91,7 @@ import top.iwesley.lyn.music.core.model.AppDisplayScalePreset
+@@ -74,6 +88,7 @@ import top.iwesley.lyn.music.core.model.AppDisplayScalePreset
  import top.iwesley.lyn.music.core.model.PlaybackSnapshot
  import top.iwesley.lyn.music.core.model.PlayerArtworkStyle
  import top.iwesley.lyn.music.core.model.Track
@@ -2019,7 +2040,7 @@ index 1aa0ba8..259a6fd 100644
  import top.iwesley.lyn.music.core.model.trackArtworkCacheKey
  import top.iwesley.lyn.music.deriveOnlinePlaybackLibraryNavigationTargets
  import top.iwesley.lyn.music.derivePlaybackLibraryNavigationTargets
-@@ -102,6 +120,28 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
+@@ -102,6 +117,28 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
  ) {
      val currentIsPureMode by rememberUpdatedState(isPureMode)
      val currentOnPureModeChanged by rememberUpdatedState(onPureModeChanged)
@@ -2048,7 +2069,7 @@ index 1aa0ba8..259a6fd 100644
      BoxWithConstraints(
          modifier = modifier
              .fillMaxSize()
-@@ -119,22 +159,15 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
+@@ -119,22 +156,15 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
              overlayMaxHeight = maxHeight,
              appDisplayScalePreset = appDisplayScalePreset,
          )
@@ -2077,7 +2098,7 @@ index 1aa0ba8..259a6fd 100644
                  playerArtworkStyle = playerArtworkStyle,
                  isFavorite = isFavorite,
                  canToggleFavorite = canToggleFavorite,
-@@ -143,22 +176,582 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
+@@ -143,25 +173,516 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
                  onlineNavigationSourceId = onlineNavigationSourceId,
                  onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
                  onPlayerIntent = onPlayerIntent,
@@ -2157,55 +2178,17 @@ index 1aa0ba8..259a6fd 100644
 +    modifier: Modifier = Modifier,
 +) {
 +    val snapshot = state.snapshot
-+    // v22（需求1）：底栏「闲置 6 秒自动隐藏」。
-+    // 只用三个状态，完全不碰播放逻辑：
-+    //   interactionTick  —— 用户操作计数器，任何手指按下 +1；
-+    //   bottomBarVisible —— 底栏显隐；
-+    //   suppressParentTap—— 吞掉「隐藏态下唤醒控件的那一下」，
-+    //                       否则唤醒的同时会顺带退出最大化（用户会觉得"点一下什么都没了"）。
-+    var interactionTick by remember { mutableStateOf(0) }
-+    var bottomBarVisible by remember { mutableStateOf(true) }
-+    var suppressParentTap by remember { mutableStateOf(false) }
-+    LaunchedEffect(interactionTick, snapshot.isPlaying) {
-+        if (!snapshot.isPlaying) {
-+            // 暂停一律常显：界面空着会让人以为卡死，而且此时本来也听不了，隐藏没有意义
-+            bottomBarVisible = true
-+            suppressParentTap = false
-+            return@LaunchedEffect
-+        }
-+        delay(AutomotivePureModeBottomBarAutoHideMillis)
-+        bottomBarVisible = false
-+    }
++    // v24：撤掉 v22/v23 的「底栏闲置 6 秒自动隐藏」。
++    // 伍所装车后判断：歌词区本来够用，靠隐藏多出来的那点高度收益不明显，
++    // 还引出封面跟着变化的问题，不值得。底栏恢复常显、高度恒定，
++    // 只保留 v22 的误触修复（底栏与时钟槽的点击吸收层 + 滑块触摸带 48dp）。
 +    Column(
 +        modifier = modifier
 +            .fillMaxSize()
-+            // v22（需求1）：Initial 阶段"只看不消费"地监听任何手指按下 —— 按钮、滑块、歌词滚动都算有操作。
-+            // 刻意不挂到各处 onClick：拖滑块、滚歌词根本不经过 onClick，挂那里会漏计时。
-+            .pointerInput(Unit) {
-+                awaitPointerEventScope {
-+                    while (true) {
-+                        val event = awaitPointerEvent(PointerEventPass.Initial)
-+                        if (event.changes.any { it.pressed && !it.previousPressed }) {
-+                            if (!bottomBarVisible) {
-+                                // 这一下只用来唤醒底栏，不算"点击空白退出最大化"
-+                                suppressParentTap = true
-+                            }
-+                            bottomBarVisible = true
-+                            interactionTick += 1
-+                        }
-+                    }
-+                }
-+            }
 +            .clickable(
 +                interactionSource = remember { MutableInteractionSource() },
 +                indication = null,
-+            ) {
-+                if (suppressParentTap) {
-+                    suppressParentTap = false
-+                } else {
-+                    onPureModeChanged(false)
-+                }
-+            }
++            ) { onPureModeChanged(false) }
 +            .padding(vertical = 6.dp),
 +    ) {
 +        // ①② 中部：左栏＝顶部时钟槽 + 封面（歌名搬走后左栏回归纯封面）；
@@ -2292,29 +2275,7 @@ index 1aa0ba8..259a6fd 100644
 +                )
 +            }
 +        }
-+        // ③ 底部常驻区：按钮行在上、进度条永久贴底（闲置时只有按钮行收起）。
-+        // v22（2B）：底栏高度在 106dp ↔ 48dp 之间动画，内容按 Bottom 对齐 ——
-+        // 底边固定不动，所以进度条位置恒定，只有按钮行被顶部裁掉，不产生上下跳动。
-+        val bottomBarHeight by animateDpAsState(
-+            targetValue = if (bottomBarVisible) {
-+                AutomotivePureModeBottomBarFullHeight
-+            } else {
-+                AutomotivePureModeBottomBarSliderRowHeight
-+            },
-+            animationSpec = tween(
-+                durationMillis = 260,
-+                easing = FastOutSlowInEasing,
-+            ),
-+            label = "automotive-pure-mode-bottom-bar-height",
-+        )
-+        val buttonRowAlpha by animateFloatAsState(
-+            targetValue = if (bottomBarVisible) 1f else 0f,
-+            animationSpec = tween(
-+                durationMillis = if (bottomBarVisible) 200 else 150,
-+                easing = FastOutSlowInEasing,
-+            ),
-+            label = "automotive-pure-mode-button-row-alpha",
-+        )
++        // ③ 底部常驻区：按钮行在上、进度条贴底。v24 起不再隐藏，高度恒定 106dp。
 +        Box(
 +            modifier = Modifier
 +                .fillMaxWidth()
@@ -2322,14 +2283,10 @@ index 1aa0ba8..259a6fd 100644
 +                // 时间标签两侧，点上去都只当作"摸了一下"，不再冒泡到最外层 Column 触发退出最大化。
 +                // 按钮与滑块是它的子级，先消费事件，动作照常执行。
 +                .pointerInput(Unit) { detectTapGestures(onTap = { }) }
-+                // v23（修 v22 布局错位）：裁剪层必须在「槽」的外面（更外层），
-+                // 这样裁剪范围才是槽报告的可见高度；放在里面会跟着内容一起跑，等于没裁。
 +                .clipToBounds()
-+                // v23（修 v22 布局错位）：不能用 height + requiredHeight 组合。
-+                // 那套写法里 height 把 48dp 报给父级 Column（中部因此多分 58dp → 歌词变多、封面下移），
-+                // 而 requiredHeight 又让内容按 106dp 从框顶往下画（底栏整体下溢 58dp，进度条被推出屏幕）。
-+                // 两个错误同时发生，还都像"画面变大"，所以第一眼看着像缩放。改用 layout 精确控制。
-+                .automotiveBottomBarSlot(visibleHeight = bottomBarHeight)
++                // v23 的「底栏槽」保留：父级看到 106dp、内容也按 106dp 画，两者一致。
++                // 万一将来再改高度，这个槽已经能正确处理"可见高度 ≠ 内容高度"，不会重蹈 v22 的错位。
++                .automotiveBottomBarSlot(visibleHeight = AutomotivePureModeBottomBarFullHeight)
 +                .padding(horizontal = AutomotivePureModeBottomBarHorizontalPadding),
 +        ) {
 +            AutomotivePureModeBottomBar(
@@ -2342,12 +2299,11 @@ index 1aa0ba8..259a6fd 100644
 +                onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
 +                onPlayerIntent = onPlayerIntent,
 +                modifier = Modifier.fillMaxWidth(),
-+                buttonRowAlpha = buttonRowAlpha,
-+            )
-+        }
-+    }
-+}
-+
+             )
+         }
+     }
+ }
+ 
 +// v23（修 v22 布局错位）：底栏专用布局槽，把「父级看到的高度」与「内容实际高度」彻底解耦：
 +//   · 报告 visibleHeight —— 父级 Column 就按这个分配空间，中部（weight 1f）拿到的剩余高度才是对的；
 +//   · 内容按自身完整高度测量 —— 两行都不会被压扁（这正是 v22 想用 requiredHeight 解决的问题）；
@@ -2463,8 +2419,6 @@ index 1aa0ba8..259a6fd 100644
 +    onPlayerIntent: (PlayerIntent) -> Unit,
 +    modifier: Modifier = Modifier,
 +    carUiScale: Float = 1.5f,
-+    // v22（2B）：按钮行透明度。降到 0 时按钮行不可见，与外层高度收缩一起完成"向上收起"。
-+    buttonRowAlpha: Float = 1f,
 +) {
 +    var dragFraction by remember(snapshot.currentTrack?.id, snapshot.durationMs) {
 +        mutableStateOf<Float?>(null)
@@ -2482,11 +2436,9 @@ index 1aa0ba8..259a6fd 100644
 +            alignment = Alignment.Bottom,
 +        ),
 +    ) {
-+        // ── 上：按钮行。闲置后淡出，并随外层高度收缩被顶部裁掉 ──
++        // ── 上：按钮行（常显） ──
 +        Row(
-+            modifier = Modifier
-+                .fillMaxWidth()
-+                .alpha(buttonRowAlpha),
++            modifier = Modifier.fillMaxWidth(),
 +            verticalAlignment = Alignment.CenterVertically,
 +            horizontalArrangement = Arrangement.spacedBy(AutomotivePureModeBottomBarButtonGap),
 +        ) {
@@ -2574,8 +2526,8 @@ index 1aa0ba8..259a6fd 100644
 +                iconSize = AutomotivePureModeBottomBarIconSize,
 +                tint = if (isFavorite) Color(0xFFE5484D) else Color.White.copy(alpha = 0.9f),
 +                enabled = canToggleFavorite,
-             )
-         }
++            )
++        }
 +        // ── 下：进度条。永久贴底常驻，显隐过程中位置不动 ──
 +        Row(
 +            modifier = Modifier.fillMaxWidth(),
@@ -2665,10 +2617,13 @@ index 1aa0ba8..259a6fd 100644
 +        fraction == 0 -> "$whole.0x"
 +        fraction % 10 == 0 -> "$whole.${fraction / 10}x"
 +        else -> "$whole.${fraction.toString().padStart(2, '0')}x"
-     }
- }
- 
-@@ -180,6 +773,7 @@ private fun AutomotivePlaybackPane(
++    }
++}
++
+ @Composable
+ private fun AutomotivePlaybackPane(
+     state: PlayerState,
+@@ -180,6 +701,7 @@ private fun AutomotivePlaybackPane(
      controlsReferenceMaxWidth: Dp,
      controlsReferenceMaxHeight: Dp,
      onPureModeChanged: (Boolean) -> Unit,
@@ -2676,7 +2631,7 @@ index 1aa0ba8..259a6fd 100644
      modifier: Modifier = Modifier,
  ) {
      val snapshot = state.snapshot
-@@ -194,14 +788,19 @@ private fun AutomotivePlaybackPane(
+@@ -194,14 +716,19 @@ private fun AutomotivePlaybackPane(
          val pureModePresentation = resolveAutomotivePureModePresentation(isPureMode)
          val topControlButtonSize = resolveAutomotiveTopControlButtonSize(maxWidth)
          val topControlIconScale = topControlButtonSize / AutomotiveTopControlsSlotHeight
@@ -2698,7 +2653,7 @@ index 1aa0ba8..259a6fd 100644
              ) {
                  if (pureModePresentation.showTopControls) {
                      Row(
-@@ -214,24 +813,61 @@ private fun AutomotivePlaybackPane(
+@@ -214,24 +741,61 @@ private fun AutomotivePlaybackPane(
                              contentDescription = "收起播放页",
                              onClick = { onPlayerIntent(PlayerIntent.ExpandedChanged(false)) },
                              buttonSize = topControlButtonSize,
@@ -2765,7 +2720,7 @@ index 1aa0ba8..259a6fd 100644
                              )
                          }
                      }
-@@ -249,14 +885,16 @@ private fun AutomotivePlaybackPane(
+@@ -249,14 +813,16 @@ private fun AutomotivePlaybackPane(
                  onlineNavigationSourceId = onlineNavigationSourceId,
                  onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
                  onPlayerIntent = onPlayerIntent,
@@ -2783,7 +2738,7 @@ index 1aa0ba8..259a6fd 100644
                  contentAlignment = Alignment.Center,
              ) {
                  if (pureModePresentation.showPlaybackControls) {
-@@ -286,19 +924,63 @@ private fun AutomotiveTrackAndProgress(
+@@ -286,19 +852,63 @@ private fun AutomotiveTrackAndProgress(
      onlineNavigationSourceId: String?,
      onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -2850,7 +2805,7 @@ index 1aa0ba8..259a6fd 100644
          val inlineActionButtonSize = if (compactVertical) 44.dp else 52.dp
          val inlineActionIconSize = if (compactVertical) 24.dp else 28.dp
          Column(
-@@ -306,6 +988,9 @@ private fun AutomotiveTrackAndProgress(
+@@ -306,6 +916,9 @@ private fun AutomotiveTrackAndProgress(
                  .fillMaxSize()
                  .padding(bottom = layout.bottomPadding),
              horizontalAlignment = Alignment.CenterHorizontally,
@@ -2860,7 +2815,7 @@ index 1aa0ba8..259a6fd 100644
              verticalArrangement = Arrangement.Bottom,
          ) {
              AutomotiveSwipeableArtwork(
-@@ -332,36 +1017,52 @@ private fun AutomotiveTrackAndProgress(
+@@ -332,36 +945,52 @@ private fun AutomotiveTrackAndProgress(
                          style = titleStyle,
                          fontWeight = FontWeight.ExtraBold,
                          color = Color.White.copy(alpha = 0.96f),
@@ -2933,7 +2888,7 @@ index 1aa0ba8..259a6fd 100644
          }
      }
  }
-@@ -387,16 +1088,12 @@ private fun AutomotiveSwipeableArtwork(
+@@ -387,16 +1016,12 @@ private fun AutomotiveSwipeableArtwork(
          animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
          label = "automotive-artwork-swipe-offset",
      )
@@ -2956,7 +2911,7 @@ index 1aa0ba8..259a6fd 100644
      }
      Box(
          modifier = modifier
-@@ -475,6 +1172,11 @@ private fun AutomotiveMetadataNavigationRow(
+@@ -475,6 +1100,11 @@ private fun AutomotiveMetadataNavigationRow(
      onlineNavigationSourceId: String?,
      onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
      modifier: Modifier = Modifier,
@@ -2968,7 +2923,7 @@ index 1aa0ba8..259a6fd 100644
  ) {
      val navigationTargets = remember(
          snapshot.currentDisplayAlbumTitle,
-@@ -504,62 +1206,33 @@ private fun AutomotiveMetadataNavigationRow(
+@@ -504,62 +1134,33 @@ private fun AutomotiveMetadataNavigationRow(
          primary = snapshot.currentDisplayAlbumTitle,
          fallback = track.albumTitle,
      )
@@ -3051,7 +3006,7 @@ index 1aa0ba8..259a6fd 100644
      )
  }
  
-@@ -567,6 +1240,7 @@ private fun AutomotiveMetadataText(
+@@ -567,6 +1168,7 @@ private fun AutomotiveMetadataText(
  private fun AutomotivePlaybackProgress(
      snapshot: PlaybackSnapshot,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -3059,7 +3014,7 @@ index 1aa0ba8..259a6fd 100644
      modifier: Modifier = Modifier,
  ) {
      var dragFraction by remember(snapshot.currentTrack?.id, snapshot.durationMs) {
-@@ -615,12 +1289,12 @@ private fun AutomotivePlaybackProgress(
+@@ -615,12 +1217,12 @@ private fun AutomotivePlaybackProgress(
          ) {
              Text(
                  text = formatDuration(snapshot.positionMs),
@@ -3074,7 +3029,7 @@ index 1aa0ba8..259a6fd 100644
                  color = Color.White.copy(alpha = 0.74f),
              )
          }
-@@ -734,19 +1408,37 @@ private fun AutomotiveLyricsPane(
+@@ -734,19 +1336,37 @@ private fun AutomotiveLyricsPane(
      state: PlayerState,
      track: Track,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -3120,7 +3075,7 @@ index 1aa0ba8..259a6fd 100644
      }
  }
  
-@@ -792,9 +1484,8 @@ internal fun resolveAutomotiveTopControlButtonSize(maxWidth: Dp): Dp =
+@@ -792,9 +1412,8 @@ internal fun resolveAutomotiveTopControlButtonSize(maxWidth: Dp): Dp =
      minOf(AutomotiveTopControlsSlotHeight, maxWidth / 3f)
          .coerceAtLeast(AutomotiveControlMinimumTouchSize)
  
@@ -3132,7 +3087,7 @@ index 1aa0ba8..259a6fd 100644
  
  internal fun resolveAutomotivePureModeAfterTwoFingerTap(
      isPureMode: Boolean,
-@@ -1190,11 +1881,71 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
+@@ -1190,11 +1809,69 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
  private val AutomotiveFiveControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 5
  private val AutomotivePrimaryControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 3
  private val AutomotiveTopControlsSlotHeight = 64.dp
@@ -3193,8 +3148,6 @@ index 1aa0ba8..259a6fd 100644
 +        AutomotivePureModeBottomBarButtonSize
 +// 听书快进/后退步长：30 秒（伍所选定）
 +private const val AutomotiveAudiobookSeekStepMs = 30_000L
-+// v22（需求1）：最大化页底栏闲置多久后自动隐藏（伍所选定 6 秒）
-+private const val AutomotivePureModeBottomBarAutoHideMillis = 6_000L
 +
 +// 播放页专用未缩放字号基准：Material3 出厂默认值。
 +// 全局 Typography 已被 LynMusicTheme scaledTypography(1.5×) 放大（作用于设置/曲库等页面），
@@ -3204,7 +3157,7 @@ index 1aa0ba8..259a6fd 100644
  internal data class AutomotiveTrackAndProgressLayout(
      val compactVertical: Boolean,
      val artworkSize: Dp,
-@@ -1324,3 +2075,41 @@ private fun automotiveMetadataValue(
+@@ -1324,3 +2001,41 @@ private fun automotiveMetadataValue(
      return primary?.trim()?.takeIf { it.isNotBlank() }
          ?: fallback?.trim()?.takeIf { it.isNotBlank() }
  }

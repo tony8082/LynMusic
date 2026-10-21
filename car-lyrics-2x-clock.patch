@@ -1960,7 +1960,7 @@ index 1e5fc1c..b5ff8a4 100644
              MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
                  Row(
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
-index 1aa0ba8..d2e003d 100644
+index 1aa0ba8..02b11e5 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 @@ -3,9 +3,11 @@ package top.iwesley.lyn.music.automotive
@@ -2098,7 +2098,7 @@ index 1aa0ba8..d2e003d 100644
                  playerArtworkStyle = playerArtworkStyle,
                  isFavorite = isFavorite,
                  canToggleFavorite = canToggleFavorite,
-@@ -143,25 +173,516 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
+@@ -143,25 +173,512 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
                  onlineNavigationSourceId = onlineNavigationSourceId,
                  onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
                  onPlayerIntent = onPlayerIntent,
@@ -2401,10 +2401,11 @@ index 1aa0ba8..d2e003d 100644
 +    }
 +}
 +
-+// v21：最大化页底部全宽底带。
-+// v22（2B）：改成「按钮行在上、进度条在下」两层结构 —— 进度条贴底常驻，
-+// 闲置时只收起按钮行，底栏高度 106 → 48dp。因为内容按 Bottom 对齐，底边固定不动，
-+// 所以进度条位置恒定不变，不会出现"每次唤出/隐藏进度条上下跳一下"的情况。
++// v21：最大化页底部全宽底带，两层结构「进度条在上、按钮行在下」，高度恒定 106dp。
++// v22（2B）：曾把两层顺序对调成「按钮行在上、进度条在下」，并加了闲置 6 秒只收按钮行的自动隐藏。
++// v24：撤销自动隐藏 —— 歌词收益不如预期，且底栏高度变化仍会牵动中部区域。
++// v25：行序复原到 v21（进度条在上、按钮行落地）。理由是取消隐藏后顺序已无遮拦优势，
++//      而进度条贴着屏幕底边、按钮行在它上面时，拇指上抬距离更短，操作更顺。
 +// 播放条之所以能"拉到整屏宽"：原来左侧 3 个工具钮（专辑/模式/搜索歌词）占了 222dp，
 +// 现在它们被移到按钮行里，滑块就能横跨两栏共 ~1124dp（改造前只有 366dp）。
 +@Composable
@@ -2428,15 +2429,61 @@ index 1aa0ba8..d2e003d 100644
 +    val timeColor = Color.White.copy(alpha = 0.74f)
 +    Column(
 +        modifier = modifier,
-+        // v22（2B）：必须用「底对齐的 spacedBy」而不是普通 spacedBy ——
-+        // 普通 spacedBy 从顶部开始排，底栏高度收缩时被裁掉的会是进度条（正好反了）；
-+        // 底对齐后溢出部分全部落在顶部，裁掉的才是按钮行，进度条永远贴底不动。
-+        verticalArrangement = Arrangement.spacedBy(
-+            space = AutomotivePureModeBottomBarRowGap,
-+            alignment = Alignment.Bottom,
-+        ),
++        // v25：底栏不再变高（常显 106dp），spacedBy 的底对齐也就不再需要了。
++        verticalArrangement = Arrangement.spacedBy(AutomotivePureModeBottomBarRowGap),
 +    ) {
-+        // ── 上：按钮行（常显） ──
++        // ── 上：进度条（v25 起恢复 v21 顺序：进度条在上、按钮行落地） ──
++        Row(
++            modifier = Modifier.fillMaxWidth(),
++            verticalAlignment = Alignment.CenterVertically,
++            horizontalArrangement = Arrangement.spacedBy(12.dp),
++        ) {
++            Text(
++                text = formatDuration(snapshot.positionMs),
++                style = timeStyle,
++                color = timeColor,
++            )
++            Box(
++                modifier = Modifier
++                    .weight(1f)
++                    .height(AutomotivePureModeSliderTouchHeight),
++                contentAlignment = Alignment.Center,
++            ) {
++                AutomotiveRoundedSliderTrack(
++                    progressFraction = progressFraction,
++                    modifier = Modifier
++                        .fillMaxWidth()
++                        .height(AutomotivePureModeSliderTrackHeight),
++                    trackHeightPx = with(LocalDensity.current) {
++                        AutomotivePureModeSliderTrackHeight.toPx()
++                    },
++                )
++                Slider(
++                    value = progressFraction.coerceIn(0f, 1f),
++                    onValueChange = { dragFraction = it },
++                    onValueChangeFinished = {
++                        val targetPositionMs = resolveAutomotivePlayerSeekPositionMs(dragFraction, snapshot)
++                        dragFraction = null
++                        if (targetPositionMs != null) {
++                            onPlayerIntent(PlayerIntent.SeekTo(targetPositionMs))
++                        }
++                    },
++                    enabled = snapshot.canSeek && snapshot.durationMs > 0L,
++                    valueRange = 0f..1f,
++                    colors = automotiveTransparentSliderColors(),
++                    modifier = Modifier
++                        .fillMaxWidth()
++                        .height(AutomotivePureModeSliderTouchHeight)
++                        .graphicsLayer(scaleY = 0.62f),
++                )
++            }
++            Text(
++                text = formatDuration(snapshot.durationMs),
++                style = timeStyle,
++                color = timeColor,
++            )
++        }
++        // ── 下：按钮行（贴屏幕底，拇指自然落点） ──
 +        Row(
 +            modifier = Modifier.fillMaxWidth(),
 +            verticalAlignment = Alignment.CenterVertically,
@@ -2528,57 +2575,6 @@ index 1aa0ba8..d2e003d 100644
 +                enabled = canToggleFavorite,
 +            )
 +        }
-+        // ── 下：进度条。永久贴底常驻，显隐过程中位置不动 ──
-+        Row(
-+            modifier = Modifier.fillMaxWidth(),
-+            verticalAlignment = Alignment.CenterVertically,
-+            horizontalArrangement = Arrangement.spacedBy(12.dp),
-+        ) {
-+            Text(
-+                text = formatDuration(snapshot.positionMs),
-+                style = timeStyle,
-+                color = timeColor,
-+            )
-+            Box(
-+                modifier = Modifier
-+                    .weight(1f)
-+                    .height(AutomotivePureModeSliderTouchHeight),
-+                contentAlignment = Alignment.Center,
-+            ) {
-+                AutomotiveRoundedSliderTrack(
-+                    progressFraction = progressFraction,
-+                    modifier = Modifier
-+                        .fillMaxWidth()
-+                        .height(AutomotivePureModeSliderTrackHeight),
-+                    trackHeightPx = with(LocalDensity.current) {
-+                        AutomotivePureModeSliderTrackHeight.toPx()
-+                    },
-+                )
-+                Slider(
-+                    value = progressFraction.coerceIn(0f, 1f),
-+                    onValueChange = { dragFraction = it },
-+                    onValueChangeFinished = {
-+                        val targetPositionMs = resolveAutomotivePlayerSeekPositionMs(dragFraction, snapshot)
-+                        dragFraction = null
-+                        if (targetPositionMs != null) {
-+                            onPlayerIntent(PlayerIntent.SeekTo(targetPositionMs))
-+                        }
-+                    },
-+                    enabled = snapshot.canSeek && snapshot.durationMs > 0L,
-+                    valueRange = 0f..1f,
-+                    colors = automotiveTransparentSliderColors(),
-+                    modifier = Modifier
-+                        .fillMaxWidth()
-+                        .height(AutomotivePureModeSliderTouchHeight)
-+                        .graphicsLayer(scaleY = 0.62f),
-+                )
-+            }
-+            Text(
-+                text = formatDuration(snapshot.durationMs),
-+                style = timeStyle,
-+                color = timeColor,
-+            )
-+        }
 +    }
 +}
 +
@@ -2623,7 +2619,7 @@ index 1aa0ba8..d2e003d 100644
  @Composable
  private fun AutomotivePlaybackPane(
      state: PlayerState,
-@@ -180,6 +701,7 @@ private fun AutomotivePlaybackPane(
+@@ -180,6 +697,7 @@ private fun AutomotivePlaybackPane(
      controlsReferenceMaxWidth: Dp,
      controlsReferenceMaxHeight: Dp,
      onPureModeChanged: (Boolean) -> Unit,
@@ -2631,7 +2627,7 @@ index 1aa0ba8..d2e003d 100644
      modifier: Modifier = Modifier,
  ) {
      val snapshot = state.snapshot
-@@ -194,14 +716,19 @@ private fun AutomotivePlaybackPane(
+@@ -194,14 +712,19 @@ private fun AutomotivePlaybackPane(
          val pureModePresentation = resolveAutomotivePureModePresentation(isPureMode)
          val topControlButtonSize = resolveAutomotiveTopControlButtonSize(maxWidth)
          val topControlIconScale = topControlButtonSize / AutomotiveTopControlsSlotHeight
@@ -2653,7 +2649,7 @@ index 1aa0ba8..d2e003d 100644
              ) {
                  if (pureModePresentation.showTopControls) {
                      Row(
-@@ -214,24 +741,61 @@ private fun AutomotivePlaybackPane(
+@@ -214,24 +737,61 @@ private fun AutomotivePlaybackPane(
                              contentDescription = "收起播放页",
                              onClick = { onPlayerIntent(PlayerIntent.ExpandedChanged(false)) },
                              buttonSize = topControlButtonSize,
@@ -2720,7 +2716,7 @@ index 1aa0ba8..d2e003d 100644
                              )
                          }
                      }
-@@ -249,14 +813,16 @@ private fun AutomotivePlaybackPane(
+@@ -249,14 +809,16 @@ private fun AutomotivePlaybackPane(
                  onlineNavigationSourceId = onlineNavigationSourceId,
                  onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
                  onPlayerIntent = onPlayerIntent,
@@ -2738,7 +2734,7 @@ index 1aa0ba8..d2e003d 100644
                  contentAlignment = Alignment.Center,
              ) {
                  if (pureModePresentation.showPlaybackControls) {
-@@ -286,19 +852,63 @@ private fun AutomotiveTrackAndProgress(
+@@ -286,19 +848,63 @@ private fun AutomotiveTrackAndProgress(
      onlineNavigationSourceId: String?,
      onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -2805,7 +2801,7 @@ index 1aa0ba8..d2e003d 100644
          val inlineActionButtonSize = if (compactVertical) 44.dp else 52.dp
          val inlineActionIconSize = if (compactVertical) 24.dp else 28.dp
          Column(
-@@ -306,6 +916,9 @@ private fun AutomotiveTrackAndProgress(
+@@ -306,6 +912,9 @@ private fun AutomotiveTrackAndProgress(
                  .fillMaxSize()
                  .padding(bottom = layout.bottomPadding),
              horizontalAlignment = Alignment.CenterHorizontally,
@@ -2815,7 +2811,7 @@ index 1aa0ba8..d2e003d 100644
              verticalArrangement = Arrangement.Bottom,
          ) {
              AutomotiveSwipeableArtwork(
-@@ -332,36 +945,52 @@ private fun AutomotiveTrackAndProgress(
+@@ -332,36 +941,52 @@ private fun AutomotiveTrackAndProgress(
                          style = titleStyle,
                          fontWeight = FontWeight.ExtraBold,
                          color = Color.White.copy(alpha = 0.96f),
@@ -2888,7 +2884,7 @@ index 1aa0ba8..d2e003d 100644
          }
      }
  }
-@@ -387,16 +1016,12 @@ private fun AutomotiveSwipeableArtwork(
+@@ -387,16 +1012,12 @@ private fun AutomotiveSwipeableArtwork(
          animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
          label = "automotive-artwork-swipe-offset",
      )
@@ -2911,7 +2907,7 @@ index 1aa0ba8..d2e003d 100644
      }
      Box(
          modifier = modifier
-@@ -475,6 +1100,11 @@ private fun AutomotiveMetadataNavigationRow(
+@@ -475,6 +1096,11 @@ private fun AutomotiveMetadataNavigationRow(
      onlineNavigationSourceId: String?,
      onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
      modifier: Modifier = Modifier,
@@ -2923,7 +2919,7 @@ index 1aa0ba8..d2e003d 100644
  ) {
      val navigationTargets = remember(
          snapshot.currentDisplayAlbumTitle,
-@@ -504,62 +1134,33 @@ private fun AutomotiveMetadataNavigationRow(
+@@ -504,62 +1130,33 @@ private fun AutomotiveMetadataNavigationRow(
          primary = snapshot.currentDisplayAlbumTitle,
          fallback = track.albumTitle,
      )
@@ -3006,7 +3002,7 @@ index 1aa0ba8..d2e003d 100644
      )
  }
  
-@@ -567,6 +1168,7 @@ private fun AutomotiveMetadataText(
+@@ -567,6 +1164,7 @@ private fun AutomotiveMetadataText(
  private fun AutomotivePlaybackProgress(
      snapshot: PlaybackSnapshot,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -3014,7 +3010,7 @@ index 1aa0ba8..d2e003d 100644
      modifier: Modifier = Modifier,
  ) {
      var dragFraction by remember(snapshot.currentTrack?.id, snapshot.durationMs) {
-@@ -615,12 +1217,12 @@ private fun AutomotivePlaybackProgress(
+@@ -615,12 +1213,12 @@ private fun AutomotivePlaybackProgress(
          ) {
              Text(
                  text = formatDuration(snapshot.positionMs),
@@ -3029,7 +3025,7 @@ index 1aa0ba8..d2e003d 100644
                  color = Color.White.copy(alpha = 0.74f),
              )
          }
-@@ -734,19 +1336,37 @@ private fun AutomotiveLyricsPane(
+@@ -734,19 +1332,37 @@ private fun AutomotiveLyricsPane(
      state: PlayerState,
      track: Track,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -3075,7 +3071,7 @@ index 1aa0ba8..d2e003d 100644
      }
  }
  
-@@ -792,9 +1412,8 @@ internal fun resolveAutomotiveTopControlButtonSize(maxWidth: Dp): Dp =
+@@ -792,9 +1408,8 @@ internal fun resolveAutomotiveTopControlButtonSize(maxWidth: Dp): Dp =
      minOf(AutomotiveTopControlsSlotHeight, maxWidth / 3f)
          .coerceAtLeast(AutomotiveControlMinimumTouchSize)
  
@@ -3087,7 +3083,7 @@ index 1aa0ba8..d2e003d 100644
  
  internal fun resolveAutomotivePureModeAfterTwoFingerTap(
      isPureMode: Boolean,
-@@ -1190,11 +1809,69 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
+@@ -1190,11 +1805,69 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
  private val AutomotiveFiveControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 5
  private val AutomotivePrimaryControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 3
  private val AutomotiveTopControlsSlotHeight = 64.dp
@@ -3157,7 +3153,7 @@ index 1aa0ba8..d2e003d 100644
  internal data class AutomotiveTrackAndProgressLayout(
      val compactVertical: Boolean,
      val artworkSize: Dp,
-@@ -1324,3 +2001,41 @@ private fun automotiveMetadataValue(
+@@ -1324,3 +1997,41 @@ private fun automotiveMetadataValue(
      return primary?.trim()?.takeIf { it.isNotBlank() }
          ?: fallback?.trim()?.takeIf { it.isNotBlank() }
  }

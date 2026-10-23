@@ -2029,7 +2029,7 @@ index 1e5fc1c..b5ff8a4 100644
              MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
                  Row(
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
-index 1aa0ba8..25495e8 100644
+index 1aa0ba8..3c81f92 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 @@ -3,9 +3,11 @@ package top.iwesley.lyn.music.automotive
@@ -2072,15 +2072,21 @@ index 1aa0ba8..25495e8 100644
  import androidx.compose.runtime.getValue
  import androidx.compose.runtime.mutableStateOf
  import androidx.compose.runtime.remember
-@@ -46,6 +52,7 @@ import androidx.compose.runtime.rememberUpdatedState
+@@ -46,24 +52,34 @@ import androidx.compose.runtime.rememberUpdatedState
  import androidx.compose.runtime.setValue
  import androidx.compose.ui.Alignment
  import androidx.compose.ui.Modifier
 +import androidx.compose.ui.draw.clipToBounds
++import androidx.compose.ui.draw.drawWithContent
  import androidx.compose.ui.geometry.CornerRadius
  import androidx.compose.ui.geometry.Offset
  import androidx.compose.ui.geometry.Size
-@@ -57,13 +64,20 @@ import androidx.compose.ui.input.pointer.PointerEventPass
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.graphics.ImageBitmap
++import androidx.compose.ui.graphics.drawscope.scale
+ import androidx.compose.ui.graphics.graphicsLayer
+ import androidx.compose.ui.graphics.vector.ImageVector
+ import androidx.compose.ui.input.pointer.PointerEventPass
  import androidx.compose.ui.input.pointer.PointerId
  import androidx.compose.ui.input.pointer.PointerInputScope
  import androidx.compose.ui.input.pointer.pointerInput
@@ -2101,7 +2107,7 @@ index 1aa0ba8..25495e8 100644
  import kotlin.math.roundToInt
  import kotlin.math.roundToLong
  import top.iwesley.lyn.music.ArtworkDecodeSize
-@@ -74,6 +88,7 @@ import top.iwesley.lyn.music.core.model.AppDisplayScalePreset
+@@ -74,6 +90,7 @@ import top.iwesley.lyn.music.core.model.AppDisplayScalePreset
  import top.iwesley.lyn.music.core.model.PlaybackSnapshot
  import top.iwesley.lyn.music.core.model.PlayerArtworkStyle
  import top.iwesley.lyn.music.core.model.Track
@@ -2109,7 +2115,7 @@ index 1aa0ba8..25495e8 100644
  import top.iwesley.lyn.music.core.model.trackArtworkCacheKey
  import top.iwesley.lyn.music.deriveOnlinePlaybackLibraryNavigationTargets
  import top.iwesley.lyn.music.derivePlaybackLibraryNavigationTargets
-@@ -102,6 +117,28 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
+@@ -102,6 +119,28 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
  ) {
      val currentIsPureMode by rememberUpdatedState(isPureMode)
      val currentOnPureModeChanged by rememberUpdatedState(onPureModeChanged)
@@ -2138,7 +2144,7 @@ index 1aa0ba8..25495e8 100644
      BoxWithConstraints(
          modifier = modifier
              .fillMaxSize()
-@@ -119,22 +156,15 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
+@@ -119,22 +158,15 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
              overlayMaxHeight = maxHeight,
              appDisplayScalePreset = appDisplayScalePreset,
          )
@@ -2167,7 +2173,7 @@ index 1aa0ba8..25495e8 100644
                  playerArtworkStyle = playerArtworkStyle,
                  isFavorite = isFavorite,
                  canToggleFavorite = canToggleFavorite,
-@@ -143,22 +173,501 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
+@@ -143,25 +175,524 @@ internal fun AutomotiveLandscapePlayerOverlayContent(
                  onlineNavigationSourceId = onlineNavigationSourceId,
                  onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
                  onPlayerIntent = onPlayerIntent,
@@ -2272,7 +2278,11 @@ index 1aa0ba8..25495e8 100644
 +                .padding(horizontal = frameLayout.horizontalPadding),
 +            horizontalArrangement = Arrangement.spacedBy(frameLayout.paneGap),
 +        ) {
-+            Column(
++            // v29：左栏改成 L 形。
++            // 左侧竖排轨道贯穿全高（8 个 76dp 图标钮），右侧上方是「喜欢 + 倍速」两个 84dp 按钮 + 时钟，
++            // 下方是封面 —— 封面右对齐、紧贴歌词区，左侧空出来的 76dp 就是竖排轨道的位置。
++            // 底栏因此只剩进度条，中部高度 578 → 660dp，歌词约从 5.3 行涨到 6.2 行。
++            Row(
                  modifier = Modifier
                      .weight(AutomotivePlaybackPaneWeight)
                      .fillMaxHeight(),
@@ -2281,41 +2291,82 @@ index 1aa0ba8..25495e8 100644
 -                state = state,
 -                track = track,
 -                onPlayerIntent = onPlayerIntent,
-+                horizontalAlignment = Alignment.CenterHorizontally,
++                horizontalArrangement = Arrangement.spacedBy(AutomotivePureModeRailGap),
 +            ) {
-+                AutomotivePureModeTopSlot(
-+                    isFavorite = isFavorite,
-+                    canToggleFavorite = canToggleFavorite,
-+                    onToggleFavorite = onToggleFavorite,
++                AutomotivePureModeRail(
++                    snapshot = snapshot,
++                    albumNavigationTarget = albumNavigationTarget,
 +                    onOpenQueue = onOpenQueue,
++                    onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
++                    onPlayerIntent = onPlayerIntent,
 +                    modifier = Modifier
-+                        .fillMaxWidth()
-+                        .height(AutomotivePureModeTopSlotHeight)
-+                        // v22（C）：时钟槽整条移出「退出最大化」的触发区。
-+                        // 这里只吞掉落在空白处的点击（喜欢/队列两个圆钮是它的子级，先消费，动作照常）。
++                        .width(AutomotivePureModeRailWidth)
++                        .fillMaxHeight()
++                        // 整条轨道是「点击吸收区」：按钮之间的 6dp 缝隙点上去不再冒泡退出最大化。
 +                        .pointerInput(Unit) { detectTapGestures(onTap = { }) },
 +                )
-+                BoxWithConstraints(
-+                    modifier = Modifier
-+                        .weight(1f)
-+                        .fillMaxWidth(),
-+                    contentAlignment = Alignment.Center,
-+                ) {
-+                    // 封面仍是固定 480dp，只保留「物理空间不足时按需收小」的兜底，
-+                    // 与旧版一样不受实测高度波动影响（避免每次启动封面大小不同）。
-+                    val artworkSize = minOf(
-+                        AutomotivePureModeArtworkFixedSize,
-+                        maxWidth * 0.92f,
-+                        maxHeight * 0.98f,
-+                    ).coerceAtLeast(AutomotivePureModeArtworkMinSize)
-+                    AutomotiveSwipeableArtwork(
-+                        snapshot = snapshot,
-+                        artworkBitmap = artworkBitmap,
-+                        artworkSize = artworkSize,
-+                        isPureMode = true,
-+                        playerArtworkStyle = playerArtworkStyle,
-+                        onPlayerIntent = onPlayerIntent,
-+                    )
++                Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
++                    Row(
++                        modifier = Modifier
++                            .fillMaxWidth()
++                            .height(AutomotivePureModeTopSlotHeight)
++                            // 同样吸收空白处点击（两个按钮与时钟是子级，先消费，动作照常）。
++                            .pointerInput(Unit) { detectTapGestures(onTap = { }) },
++                        verticalAlignment = Alignment.CenterVertically,
++                        horizontalArrangement = Arrangement.spacedBy(AutomotivePureModeTopButtonGap),
++                    ) {
++                        // v29.1：这一行最终固定为「喜欢 + 倍速」，两个都是 84dp。
++                        // 中间过程：v29 曾塞进「搜索歌词」凑成三个 60dp 的小钮（比 v28 的 84dp 明显小一圈），
++                        // 已删掉 —— 普通播放页右上角仍有搜索歌词入口（本文件 L757），功能不缺。
++                        // 空间：2×84 + 6 = 174dp，加时钟 90sp（约 227dp）= 401dp ≤ 447.8dp
++                        //      （左栏 531.8 − 竖排轨道 76 − 间隙 8），余 46dp。
++                        //      若三个钮回到这一行需 3×84+2×6 = 264dp，加时钟 507dp，超 59dp —— 放不下。
++                        AutomotiveRoundIconButton(
++                            icon = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
++                            contentDescription = if (isFavorite) "取消喜欢" else "喜欢",
++                            onClick = onToggleFavorite,
++                            buttonSize = AutomotivePureModeTopButtonSize,
++                            iconSize = AutomotivePureModeTopButtonIconSize,
++                            tint = if (isFavorite) Color(0xFFE5484D) else Color.White.copy(alpha = 0.9f),
++                            enabled = canToggleFavorite,
++                        )
++                        // v29.1：队列挪到左竖排（与其它图标钮视觉统一），空出的位置放倍速。
++                        // 倍速是文字钮，25sp 的「1.75x」约 66dp，塞进 76dp 轨道只剩 5dp 边距；
++                        // 放到 84dp 的顶部位正好回到 v28 的原宽度，比挤在轨道里舒服。
++                        AutomotivePlaybackSpeedButton(
++                            speed = snapshot.playbackSpeed,
++                            onClick = { onPlayerIntent(PlayerIntent.CyclePlaybackSpeed) },
++                            buttonSize = AutomotivePureModeTopButtonSize,
++                        )
++                        Spacer(Modifier.weight(1f))
++                        // 时钟按伍所要求放在「封面右上」，即左栏顶部这一行的右端。
++                        AutomotiveClock(scale = AutomotivePureModeClockScale)
++                    }
++                    BoxWithConstraints(
++                        modifier = Modifier
++                            .weight(1f)
++                            .fillMaxWidth(),
++                        // 封面靠右：右边紧贴歌词区（中间只隔 paneGap），左边空出来给竖排轨道。
++                        contentAlignment = Alignment.CenterEnd,
++                    ) {
++                        // v29：固定 440dp。
++                        // v29.1：留边系数 0.99 → 去掉（等于 1.0）。440 本身就是「比可用宽度 447.8 小 7.8dp」
++                        // 的安全值，再乘一次系数是重复打折，只会让固定值在边界上又被压下去几十像素。
++                        // 现在只有当可用空间真的不足 440（极端小屏/超大字号）才收小，正常情况下封面恒为 440dp。
++                        val artworkSize = minOf(
++                            AutomotivePureModeArtworkFixedSize,
++                            maxWidth,
++                            maxHeight,
++                        ).coerceAtLeast(AutomotivePureModeArtworkMinSize)
++                        AutomotiveSwipeableArtwork(
++                            snapshot = snapshot,
++                            artworkBitmap = artworkBitmap,
++                            artworkSize = artworkSize,
++                            isPureMode = true,
++                            playerArtworkStyle = playerArtworkStyle,
++                            onPlayerIntent = onPlayerIntent,
++                        )
++                    }
 +                }
 +            }
 +            Column(
@@ -2345,14 +2396,13 @@ index 1aa0ba8..25495e8 100644
 +                )
 +            }
 +        }
-+        // ③ 底部常驻区：进度条在上、按钮行贴底。v24 起不再隐藏，高度恒定
-+        //    AutomotivePureModeBottomBarFullHeight（v27 起按钮加大为 76dp，总高 130dp）。
++        // ③ 底部常驻区：v29 起只剩进度条一行，高度恒定 48dp（按钮全部搬进左栏）。
 +        Box(
 +            modifier = Modifier
 +                .fillMaxWidth()
-+                // v22（A/C）：整条底栏是「点击吸收区」—— 按钮间隙、右侧空白、暂不可用的灰按钮、
-+                // 时间标签两侧，点上去都只当作"摸了一下"，不再冒泡到最外层 Column 触发退出最大化。
-+                // 按钮与滑块是它的子级，先消费事件，动作照常执行。
++                // v22（A/C）：整条底栏是「点击吸收区」—— 时间标签两侧、滑块左右的空白，
++                // 点上去都只当作"摸了一下"，不再冒泡到最外层 Column 触发退出最大化。
++                // 滑块是它的子级，先消费事件，拖动照常执行。
 +                .pointerInput(Unit) { detectTapGestures(onTap = { }) }
 +                .clipToBounds()
 +                // v23 的「底栏槽」保留：父级看到的 = 内容实际的 = 同一个常量，两者一致。
@@ -2362,15 +2412,13 @@ index 1aa0ba8..25495e8 100644
 +        ) {
 +            AutomotivePureModeBottomBar(
 +                snapshot = snapshot,
-+                albumNavigationTarget = albumNavigationTarget,
-+                onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
 +                onPlayerIntent = onPlayerIntent,
 +                modifier = Modifier.fillMaxWidth(),
-+            )
-+        }
-+    }
-+}
-+
+             )
+         }
+     }
+ }
+ 
 +// v23（修 v22 布局错位）：底栏专用布局槽，把「父级看到的高度」与「内容实际高度」彻底解耦：
 +//   · 报告 visibleHeight —— 父级 Column 就按这个分配空间，中部（weight 1f）拿到的剩余高度才是对的；
 +//   · 内容按自身完整高度测量 —— 两行都不会被压扁（这正是 v22 想用 requiredHeight 解决的问题）；
@@ -2388,40 +2436,94 @@ index 1aa0ba8..25495e8 100644
 +        }
 +    }
 +
-+// v21：最大化页顶部时钟槽（时钟 + 左喜欢 + 右播放队列）。
-+// v22（C）：改为由调用处加一个空手势吸收区，整条不再触发「退出最大化」；
-+// 喜欢/队列两个圆钮仍是本组件的子级，点击先被它们消费，行为不变。
++// v29：最大化页左栏的竖排按钮轨道（取代 v21~v28 的「顶部时钟槽 + 底部按钮行」）。
++// 原来这些钮和进度条一起挤在底部 130dp 的横带里，把歌词区压到只剩 5.3 行；
++// 现在整条轨道贯穿左栏全高（76dp 宽 × 660dp 高），不再占用任何垂直空间。
++// 放：上一集 / 后退30 / 播放暂停 / 前进30 / 下一集 / 队列 / 播放模式 / 专辑 ——
++// 全是听书时拇指最常按的，排在屏幕最左侧（左舵驾驶左手一伸就到）。
++// 喜欢 + 倍速不在轨道里，它们在顶部一行（见 AutomotivePureModeLayout）：
++// 倍速是文字钮，需要比 76dp 轨道更宽的位置才放得下「1.75x」。
 +@Composable
-+private fun AutomotivePureModeTopSlot(
-+    isFavorite: Boolean,
-+    canToggleFavorite: Boolean,
-+    onToggleFavorite: () -> Unit,
++private fun AutomotivePureModeRail(
++    snapshot: PlaybackSnapshot,
++    albumNavigationTarget: LibraryNavigationTarget?,
 +    onOpenQueue: () -> Unit,
-+    carUiScale: Float = 1.5f,
++    onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
++    onPlayerIntent: (PlayerIntent) -> Unit,
 +    modifier: Modifier = Modifier,
 +) {
-+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-+        AutomotiveClock(scale = carUiScale)
-+        Row(
-+            modifier = Modifier.fillMaxSize(),
-+            horizontalArrangement = Arrangement.SpaceBetween,
-+            verticalAlignment = Alignment.CenterVertically,
-+        ) {
++    Column(
++        modifier = modifier,
++        // 8 个时占 650dp（可用 660dp），7 个时（无专辑信息）只占 568dp。
++        // 居中排列让两种数量都上下匀称，不会出现「全挤在上半截、下面空一片」。
++        verticalArrangement = Arrangement.spacedBy(
++            AutomotivePureModeRailButtonGap,
++            Alignment.CenterVertically,
++        ),
++    ) {
++        AutomotiveRoundIconButton(
++            icon = Icons.Rounded.SkipPrevious,
++            contentDescription = "上一集",
++            onClick = { onPlayerIntent(PlayerIntent.SkipPreviousTrack) },
++            buttonSize = AutomotivePureModeBottomBarButtonSize,
++            iconSize = AutomotivePureModeBottomBarIconSize,
++        )
++        AutomotiveRoundIconButton(
++            icon = Icons.Rounded.Replay30,
++            contentDescription = "后退30秒",
++            onClick = { onPlayerIntent(PlayerIntent.SeekBy(-AutomotiveAudiobookSeekStepMs)) },
++            buttonSize = AutomotivePureModeBottomBarButtonSize,
++            iconSize = AutomotivePureModeBottomBarIconSize,
++            enabled = snapshot.canSeek,
++        )
++        AutomotiveRoundIconButton(
++            icon = if (snapshot.isPlaying) Icons.Rounded.PauseCircle else Icons.Rounded.PlayCircle,
++            contentDescription = if (snapshot.isPlaying) "暂停" else "播放",
++            onClick = { onPlayerIntent(PlayerIntent.TogglePlayPause) },
++            buttonSize = AutomotivePureModeBottomBarButtonSize,
++            iconSize = AutomotivePureModeBottomBarIconSize,
++        )
++        AutomotiveRoundIconButton(
++            icon = Icons.Rounded.Forward30,
++            contentDescription = "前进30秒",
++            onClick = { onPlayerIntent(PlayerIntent.SeekBy(AutomotiveAudiobookSeekStepMs)) },
++            buttonSize = AutomotivePureModeBottomBarButtonSize,
++            iconSize = AutomotivePureModeBottomBarIconSize,
++            enabled = snapshot.canSeek,
++        )
++        AutomotiveRoundIconButton(
++            icon = Icons.Rounded.SkipNext,
++            contentDescription = "下一集",
++            onClick = { onPlayerIntent(PlayerIntent.SkipNext) },
++            buttonSize = AutomotivePureModeBottomBarButtonSize,
++            iconSize = AutomotivePureModeBottomBarIconSize,
++        )
++        // v29.1：第 6 位由「倍速」换成「队列」。倍速是文字钮（25sp 的 1.75x 约 66dp 宽），
++        // 挤在 76dp 宽的轨道里只剩 5dp 边距，而顶部那行空着 46dp —— 挪上去正好回到 v28 的 84dp 宽度。
++        // 队列是图标钮，与整条轨道的视觉完全统一，且它不属于"播放控制"，放在 5 个播放键之后正合适。
++        AutomotiveRoundIconButton(
++            icon = Icons.AutoMirrored.Rounded.QueueMusic,
++            contentDescription = "播放队列",
++            onClick = onOpenQueue,
++            buttonSize = AutomotivePureModeBottomBarButtonSize,
++            iconSize = AutomotivePureModeBottomBarIconSize,
++        )
++        AutomotiveRoundIconButton(
++            icon = playbackModeIcon(snapshot.mode),
++            contentDescription = "切换播放模式",
++            onClick = { onPlayerIntent(PlayerIntent.CycleMode) },
++            buttonSize = AutomotivePureModeBottomBarButtonSize,
++            iconSize = AutomotivePureModeBottomBarIconSize,
++        )
++        // 第 8 位：专辑跳转（条件显示，与 v21~v28 一致）。
++        // 竖排 8 个共占 8×76 + 7×6 = 650dp，中部可用 660dp，余 10dp —— 放得下，所以不必砍掉这个按钮。
++        if (albumNavigationTarget != null) {
 +            AutomotiveRoundIconButton(
-+                icon = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-+                contentDescription = if (isFavorite) "取消喜欢" else "喜欢",
-+                onClick = onToggleFavorite,
-+                buttonSize = AutomotiveMaximizeBackButtonSize,
-+                iconSize = AutomotiveMaximizeBackIconSize,
-+                tint = if (isFavorite) Color(0xFFE5484D) else Color.White.copy(alpha = 0.9f),
-+                enabled = canToggleFavorite,
-+            )
-+            AutomotiveRoundIconButton(
-+                icon = Icons.AutoMirrored.Rounded.QueueMusic,
-+                contentDescription = "播放队列",
-+                onClick = onOpenQueue,
-+                buttonSize = AutomotiveMaximizeBackButtonSize,
-+                iconSize = AutomotiveMaximizeBackIconSize,
++                icon = Icons.Rounded.Album,
++                contentDescription = "跳转到该歌曲所在专辑",
++                onClick = { onOpenLibraryNavigationTarget(albumNavigationTarget) },
++                buttonSize = AutomotivePureModeBottomBarButtonSize,
++                iconSize = AutomotivePureModeBottomBarIconSize,
 +            )
 +        }
 +    }
@@ -2477,18 +2579,14 @@ index 1aa0ba8..25495e8 100644
 +    }
 +}
 +
-+// v21：最大化页底部全宽底带，两层结构「进度条在上、按钮行在下」，高度恒定 106dp。
-+// v22（2B）：曾把两层顺序对调成「按钮行在上、进度条在下」，并加了闲置 6 秒只收按钮行的自动隐藏。
-+// v24：撤销自动隐藏 —— 歌词收益不如预期，且底栏高度变化仍会牵动中部区域。
-+// v25：行序复原到 v21（进度条在上、按钮行落地）。理由是取消隐藏后顺序已无遮拦优势，
-+//      而进度条贴着屏幕底边、按钮行在它上面时，拇指上抬距离更短，操作更顺。
-+// 播放条之所以能"拉到整屏宽"：原来左侧 3 个工具钮（专辑/模式/搜索歌词）占了 222dp，
-+// 现在它们被移到按钮行里，滑块就能横跨两栏共 ~1124dp（改造前只有 366dp）。
++// v21：最大化页底部全宽底带，最初是「进度条 + 按钮行」两层结构，高度 106 / 130dp。
++// v22（2B）~v28：累计折腾过行序对调、闲置 6 秒只收按钮行、v24 撤销隐藏、v25 恢复 v21 行序。
++// v29：**按钮不再放在底栏**——全部搬进左栏（贯穿全高的竖排轨道 8 个 + 顶部一行 3 个），
++//      底栏只剩进度条 48dp。中部高度因此从 578dp 涨到 660dp，歌词从 5.3 行涨到 6.2 行。
++//      进度条仍横跨两栏 ~1124dp（两个时间标签之间），听书拖进度的手感不变。
 +@Composable
 +private fun AutomotivePureModeBottomBar(
 +    snapshot: PlaybackSnapshot,
-+    albumNavigationTarget: LibraryNavigationTarget?,
-+    onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
 +    onPlayerIntent: (PlayerIntent) -> Unit,
 +    modifier: Modifier = Modifier,
 +    carUiScale: Float = 1.5f,
@@ -2501,10 +2599,9 @@ index 1aa0ba8..25495e8 100644
 +    val timeColor = Color.White.copy(alpha = 0.74f)
 +    Column(
 +        modifier = modifier,
-+        // v25：底栏不再变高（常显），spacedBy 的底对齐也就不再需要了。
 +        verticalArrangement = Arrangement.spacedBy(AutomotivePureModeBottomBarRowGap),
 +    ) {
-+        // ── 上：进度条（v25 起恢复 v21 顺序：进度条在上、按钮行落地） ──
++        // ── 进度条：v29 起独占整个底栏 ──
 +        Row(
 +            modifier = Modifier.fillMaxWidth(),
 +            verticalAlignment = Alignment.CenterVertically,
@@ -2546,93 +2643,20 @@ index 1aa0ba8..25495e8 100644
 +                    modifier = Modifier
 +                        .fillMaxWidth()
 +                        .height(AutomotivePureModeSliderTouchHeight)
-+                        .graphicsLayer(scaleY = 0.62f),
++                        // v29.1：原来这里是 graphicsLayer(scaleY = 0.62f)，本意只是把白色滑块头压扁好看，
++                        // 但 graphicsLayer 的变换会一起作用到命中测试上 —— 48dp 的触摸带被压成
++                        // 48×0.62 ≈ 30dp，手指偏 9dp 就拖不到进度。改用 drawWithContent 只在绘制阶段压扁，
++                        // 视觉与原来逐像素一致，命中区则回到完整的 48dp。
++                        .drawWithContent {
++                            scale(1f, 0.62f) { this@drawWithContent.drawContent() }
++                        },
 +                )
 +            }
 +            Text(
 +                text = formatDuration(snapshot.durationMs),
 +                style = timeStyle,
 +                color = timeColor,
-             )
-         }
-+        // ── 下：按钮行（贴屏幕底，拇指自然落点） ──
-+        Row(
-+            modifier = Modifier.fillMaxWidth(),
-+            verticalAlignment = Alignment.CenterVertically,
-+            horizontalArrangement = Arrangement.spacedBy(AutomotivePureModeBottomBarButtonGap),
-+        ) {
-+            // 组 1：后退 30 秒 / 播放暂停 / 前进 30 秒（听书核心三键）
-+            AutomotiveRoundIconButton(
-+                icon = Icons.Rounded.Replay30,
-+                contentDescription = "后退30秒",
-+                onClick = { onPlayerIntent(PlayerIntent.SeekBy(-AutomotiveAudiobookSeekStepMs)) },
-+                buttonSize = AutomotivePureModeBottomBarButtonSize,
-+                iconSize = AutomotivePureModeBottomBarIconSize,
-+                enabled = snapshot.canSeek,
 +            )
-+            AutomotiveRoundIconButton(
-+                icon = if (snapshot.isPlaying) Icons.Rounded.PauseCircle else Icons.Rounded.PlayCircle,
-+                contentDescription = if (snapshot.isPlaying) "暂停" else "播放",
-+                onClick = { onPlayerIntent(PlayerIntent.TogglePlayPause) },
-+                buttonSize = AutomotivePureModeBottomBarButtonSize,
-+                iconSize = AutomotivePureModeBottomBarIconSize,
-+            )
-+            AutomotiveRoundIconButton(
-+                icon = Icons.Rounded.Forward30,
-+                contentDescription = "前进30秒",
-+                onClick = { onPlayerIntent(PlayerIntent.SeekBy(AutomotiveAudiobookSeekStepMs)) },
-+                buttonSize = AutomotivePureModeBottomBarButtonSize,
-+                iconSize = AutomotivePureModeBottomBarIconSize,
-+                enabled = snapshot.canSeek,
-+            )
-+            // 组 2：上一集 / 下一集（上一集直接切集，不回到本章开头）
-+            AutomotiveRoundIconButton(
-+                icon = Icons.Rounded.SkipPrevious,
-+                contentDescription = "上一集",
-+                onClick = { onPlayerIntent(PlayerIntent.SkipPreviousTrack) },
-+                buttonSize = AutomotivePureModeBottomBarButtonSize,
-+                iconSize = AutomotivePureModeBottomBarIconSize,
-+            )
-+            AutomotiveRoundIconButton(
-+                icon = Icons.Rounded.SkipNext,
-+                contentDescription = "下一集",
-+                onClick = { onPlayerIntent(PlayerIntent.SkipNext) },
-+                buttonSize = AutomotivePureModeBottomBarButtonSize,
-+                iconSize = AutomotivePureModeBottomBarIconSize,
-+            )
-+            // 组 3：倍速 / 播放模式 / 搜索歌词 / 专辑
-+            AutomotivePlaybackSpeedButton(
-+                speed = snapshot.playbackSpeed,
-+                onClick = { onPlayerIntent(PlayerIntent.CyclePlaybackSpeed) },
-+                buttonSize = AutomotivePureModeBottomBarButtonSize,
-+            )
-+            AutomotiveRoundIconButton(
-+                icon = playbackModeIcon(snapshot.mode),
-+                contentDescription = "切换播放模式",
-+                onClick = { onPlayerIntent(PlayerIntent.CycleMode) },
-+                buttonSize = AutomotivePureModeBottomBarButtonSize,
-+                iconSize = AutomotivePureModeBottomBarIconSize,
-+            )
-+            AutomotiveRoundIconButton(
-+                icon = Icons.Rounded.Search,
-+                contentDescription = "搜索歌词",
-+                onClick = { onPlayerIntent(PlayerIntent.OpenManualLyricsSearch) },
-+                buttonSize = AutomotivePureModeBottomBarButtonSize,
-+                iconSize = AutomotivePureModeBottomBarIconSize,
-+            )
-+            if (albumNavigationTarget != null) {
-+                AutomotiveRoundIconButton(
-+                    icon = Icons.Rounded.Album,
-+                    contentDescription = "跳转到该歌曲所在专辑",
-+                    onClick = { onOpenLibraryNavigationTarget(albumNavigationTarget) },
-+                    buttonSize = AutomotivePureModeBottomBarButtonSize,
-+                    iconSize = AutomotivePureModeBottomBarIconSize,
-+                )
-+            }
-+            // v27：撤掉原来的「组 4：播放队列 / 喜欢」。
-+            // 这两个在封面正上方的时钟槽里各有一个，且那对是 84dp/48dp 的大按钮，
-+            // 底栏再放一份纯属重复，还挤占了按钮加大的横向空间（伍所要求去掉）。
-+            // 纯模式下时钟槽是常显的，所以这两个功能不会失去入口。
 +        }
 +    }
 +}
@@ -2646,7 +2670,9 @@ index 1aa0ba8..25495e8 100644
 +) {
 +    IconButton(
 +        onClick = onClick,
-+        modifier = Modifier.size(width = buttonSize + 8.dp, height = buttonSize),
++        // v29.1：倍速改放在左栏顶部行（84dp 方形），不再出现在竖排轨道里。
++        // 宽度不再需要 +8dp 余量：25sp 的「1.75x」约 66dp，84dp 框内左右各余 9dp，够用。
++        modifier = Modifier.size(buttonSize),
 +    ) {
 +        Text(
 +            text = formatAutomotivePlaybackSpeedLabel(speed),
@@ -2674,10 +2700,13 @@ index 1aa0ba8..25495e8 100644
 +        fraction == 0 -> "$whole.0x"
 +        fraction % 10 == 0 -> "$whole.${fraction / 10}x"
 +        else -> "$whole.${fraction.toString().padStart(2, '0')}x"
-     }
- }
- 
-@@ -180,6 +689,7 @@ private fun AutomotivePlaybackPane(
++    }
++}
++
+ @Composable
+ private fun AutomotivePlaybackPane(
+     state: PlayerState,
+@@ -180,6 +711,7 @@ private fun AutomotivePlaybackPane(
      controlsReferenceMaxWidth: Dp,
      controlsReferenceMaxHeight: Dp,
      onPureModeChanged: (Boolean) -> Unit,
@@ -2685,7 +2714,7 @@ index 1aa0ba8..25495e8 100644
      modifier: Modifier = Modifier,
  ) {
      val snapshot = state.snapshot
-@@ -194,14 +704,19 @@ private fun AutomotivePlaybackPane(
+@@ -194,14 +726,19 @@ private fun AutomotivePlaybackPane(
          val pureModePresentation = resolveAutomotivePureModePresentation(isPureMode)
          val topControlButtonSize = resolveAutomotiveTopControlButtonSize(maxWidth)
          val topControlIconScale = topControlButtonSize / AutomotiveTopControlsSlotHeight
@@ -2707,7 +2736,7 @@ index 1aa0ba8..25495e8 100644
              ) {
                  if (pureModePresentation.showTopControls) {
                      Row(
-@@ -214,24 +729,61 @@ private fun AutomotivePlaybackPane(
+@@ -214,24 +751,61 @@ private fun AutomotivePlaybackPane(
                              contentDescription = "收起播放页",
                              onClick = { onPlayerIntent(PlayerIntent.ExpandedChanged(false)) },
                              buttonSize = topControlButtonSize,
@@ -2774,7 +2803,7 @@ index 1aa0ba8..25495e8 100644
                              )
                          }
                      }
-@@ -249,14 +801,16 @@ private fun AutomotivePlaybackPane(
+@@ -249,14 +823,16 @@ private fun AutomotivePlaybackPane(
                  onlineNavigationSourceId = onlineNavigationSourceId,
                  onOpenLibraryNavigationTarget = onOpenLibraryNavigationTarget,
                  onPlayerIntent = onPlayerIntent,
@@ -2792,7 +2821,7 @@ index 1aa0ba8..25495e8 100644
                  contentAlignment = Alignment.Center,
              ) {
                  if (pureModePresentation.showPlaybackControls) {
-@@ -286,19 +840,63 @@ private fun AutomotiveTrackAndProgress(
+@@ -286,19 +862,63 @@ private fun AutomotiveTrackAndProgress(
      onlineNavigationSourceId: String?,
      onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -2859,7 +2888,7 @@ index 1aa0ba8..25495e8 100644
          val inlineActionButtonSize = if (compactVertical) 44.dp else 52.dp
          val inlineActionIconSize = if (compactVertical) 24.dp else 28.dp
          Column(
-@@ -306,6 +904,9 @@ private fun AutomotiveTrackAndProgress(
+@@ -306,6 +926,9 @@ private fun AutomotiveTrackAndProgress(
                  .fillMaxSize()
                  .padding(bottom = layout.bottomPadding),
              horizontalAlignment = Alignment.CenterHorizontally,
@@ -2869,7 +2898,7 @@ index 1aa0ba8..25495e8 100644
              verticalArrangement = Arrangement.Bottom,
          ) {
              AutomotiveSwipeableArtwork(
-@@ -332,36 +933,53 @@ private fun AutomotiveTrackAndProgress(
+@@ -332,36 +955,53 @@ private fun AutomotiveTrackAndProgress(
                          style = titleStyle,
                          fontWeight = FontWeight.ExtraBold,
                          color = Color.White.copy(alpha = 0.96f),
@@ -2943,7 +2972,7 @@ index 1aa0ba8..25495e8 100644
          }
      }
  }
-@@ -387,16 +1005,12 @@ private fun AutomotiveSwipeableArtwork(
+@@ -387,16 +1027,12 @@ private fun AutomotiveSwipeableArtwork(
          animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
          label = "automotive-artwork-swipe-offset",
      )
@@ -2966,7 +2995,7 @@ index 1aa0ba8..25495e8 100644
      }
      Box(
          modifier = modifier
-@@ -475,6 +1089,11 @@ private fun AutomotiveMetadataNavigationRow(
+@@ -475,6 +1111,11 @@ private fun AutomotiveMetadataNavigationRow(
      onlineNavigationSourceId: String?,
      onOpenLibraryNavigationTarget: (LibraryNavigationTarget) -> Unit,
      modifier: Modifier = Modifier,
@@ -2978,7 +3007,7 @@ index 1aa0ba8..25495e8 100644
  ) {
      val navigationTargets = remember(
          snapshot.currentDisplayAlbumTitle,
-@@ -504,62 +1123,35 @@ private fun AutomotiveMetadataNavigationRow(
+@@ -504,62 +1145,35 @@ private fun AutomotiveMetadataNavigationRow(
          primary = snapshot.currentDisplayAlbumTitle,
          fallback = track.albumTitle,
      )
@@ -3063,7 +3092,7 @@ index 1aa0ba8..25495e8 100644
      )
  }
  
-@@ -567,6 +1159,7 @@ private fun AutomotiveMetadataText(
+@@ -567,6 +1181,7 @@ private fun AutomotiveMetadataText(
  private fun AutomotivePlaybackProgress(
      snapshot: PlaybackSnapshot,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -3071,7 +3100,7 @@ index 1aa0ba8..25495e8 100644
      modifier: Modifier = Modifier,
  ) {
      var dragFraction by remember(snapshot.currentTrack?.id, snapshot.durationMs) {
-@@ -615,12 +1208,12 @@ private fun AutomotivePlaybackProgress(
+@@ -615,12 +1230,12 @@ private fun AutomotivePlaybackProgress(
          ) {
              Text(
                  text = formatDuration(snapshot.positionMs),
@@ -3086,7 +3115,7 @@ index 1aa0ba8..25495e8 100644
                  color = Color.White.copy(alpha = 0.74f),
              )
          }
-@@ -734,19 +1327,37 @@ private fun AutomotiveLyricsPane(
+@@ -734,19 +1349,37 @@ private fun AutomotiveLyricsPane(
      state: PlayerState,
      track: Track,
      onPlayerIntent: (PlayerIntent) -> Unit,
@@ -3132,7 +3161,7 @@ index 1aa0ba8..25495e8 100644
      }
  }
  
-@@ -792,9 +1403,8 @@ internal fun resolveAutomotiveTopControlButtonSize(maxWidth: Dp): Dp =
+@@ -792,9 +1425,8 @@ internal fun resolveAutomotiveTopControlButtonSize(maxWidth: Dp): Dp =
      minOf(AutomotiveTopControlsSlotHeight, maxWidth / 3f)
          .coerceAtLeast(AutomotiveControlMinimumTouchSize)
  
@@ -3144,7 +3173,7 @@ index 1aa0ba8..25495e8 100644
  
  internal fun resolveAutomotivePureModeAfterTwoFingerTap(
      isPureMode: Boolean,
-@@ -1190,11 +1800,72 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
+@@ -1190,11 +1822,91 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
  private val AutomotiveFiveControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 5
  private val AutomotivePrimaryControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 3
  private val AutomotiveTopControlsSlotHeight = 64.dp
@@ -3171,8 +3200,12 @@ index 1aa0ba8..25495e8 100644
 +// 改前 pure 模式封面 = min(宽×0.92, 高×0.76, 高−文字块−间距−边距)，其中「高」是
 +// BoxWithConstraints 的实测值 —— 车机状态栏/导航栏一显一隐它就变，导致每次启动封面尺寸
 +// 不同、底行余量跟着变（伍所反馈的"下端截断高度会变化"）。
-+// 现在锁定 480dp（1280×720 实机确认的最佳观感尺寸），只保留"物理空间不足时按需收小"的兜底。
-+private val AutomotivePureModeArtworkFixedSize = 480.dp
++// 现在锁定固定值（1280×720 实机确认的最佳观感尺寸），只保留"物理空间不足时按需收小"的兜底。
++// v29：480 → 440dp。左栏要让出 76dp 的竖排按钮轨道 + 8dp 间隙，
++// 封面可用宽度 = 531.8 − 76 − 8 = 447.8dp，440 在其中且留 7.8dp 余量。
++// v29.1：调用处的留边系数 0.99 已去掉（等效 1.0）—— 440 本身已比 447.8 小 7.8dp，
++// 再乘系数是重复打折；现在封面在正常车机上恒为 440dp，只有可用空间真的不足时才收小。
++private val AutomotivePureModeArtworkFixedSize = 440.dp
 +private val AutomotiveMaximizeBackButtonSize = 84.dp
 +private val AutomotiveMaximizeBackIconSize = 48.dp
 +private const val AutomotivePureModeArtworkScale = 1.25f
@@ -3199,13 +3232,28 @@ index 1aa0ba8..25495e8 100644
 +private val AutomotivePureModeBottomBarIconSize = 44.dp
 +// v27：按钮变大后间距按同比例跟进（8/52 ≈ 12/76），否则大按钮会挤成一片。
 +private val AutomotivePureModeBottomBarButtonGap = 12.dp
-+// v22（2B）：底栏两层高度。进度行 = 滑块触摸高度 48dp，按钮行 = 按钮尺寸，中间 6dp 行距。
-+// v27：按钮行 52 → 76dp，底栏总高随之 106 → 130dp，多出的 24dp 由歌词行距压缩（48 → 32dp）补回来。
++// v29：底栏只剩进度行。按钮整行搬到左栏（竖排轨道 + 顶部一排），
++// 所以底栏高度 = 进度行 48dp，中部因此多出 82dp 全给歌词。
 +private val AutomotivePureModeBottomBarSliderRowHeight = AutomotivePureModeSliderTouchHeight
-+private val AutomotivePureModeBottomBarFullHeight =
-+    AutomotivePureModeBottomBarSliderRowHeight +
-+        AutomotivePureModeBottomBarRowGap +
-+        AutomotivePureModeBottomBarButtonSize
++private val AutomotivePureModeBottomBarFullHeight = AutomotivePureModeBottomBarSliderRowHeight
++
++// ── v29 左栏 L 形按钮布局 ──
++// 竖排轨道：76dp 宽、贯穿左栏全高 660dp。8 个 76dp 图标钮 + 7 个 6dp 间隙 = 650dp ≤ 660 ✓
++// （若轨道只占封面区那 572dp，就只能放 6 个，所以必须从屏幕顶端起算）
++// 顺序（v29.1）：上一集 / 后退30 / 播放暂停 / 前进30 / 下一集 / 队列 / 播放模式 / 专辑(条件)。
++// 前 5 个位置的顺序从 v21 起没变过，拇指肌肉记忆不受影响。
++private val AutomotivePureModeRailWidth = 76.dp
++private val AutomotivePureModeRailGap = 8.dp
++private val AutomotivePureModeRailButtonGap = 6.dp
++// 顶部一行：2 个按钮（喜欢 + 倍速）+ 时钟，都按 v28 原尺寸 84dp / 48dp。
++// v29 一度塞进三个钮并压到 60dp（比 v28 小一圈，被否掉）；v29.1 定为两个 84dp。
++//   空间核算：2×84 + 1×6 = 174dp，时钟 90sp（60×1.5）实测约 227dp，合计 401dp
++//   ≤ 447.8dp（左栏 531.8 − 竖排轨道 76 − 间隙 8），余 46dp 给中间的 Spacer。
++//   三个钮需 3×84+2×6 = 264dp，加时钟 451dp，超 3dp 且毫无余量 —— 装不下，所以这一行最多两个。
++private val AutomotivePureModeTopButtonGap = 6.dp
++private val AutomotivePureModeTopButtonSize = 84.dp
++private val AutomotivePureModeTopButtonIconSize = 48.dp
++private const val AutomotivePureModeClockScale = 1.5f
 +// 听书快进/后退步长：30 秒（伍所选定）
 +private const val AutomotiveAudiobookSeekStepMs = 30_000L
 +
@@ -3217,7 +3265,7 @@ index 1aa0ba8..25495e8 100644
  internal data class AutomotiveTrackAndProgressLayout(
      val compactVertical: Boolean,
      val artworkSize: Dp,
-@@ -1324,3 +1995,41 @@ private fun automotiveMetadataValue(
+@@ -1324,3 +2036,41 @@ private fun automotiveMetadataValue(
      return primary?.trim()?.takeIf { it.isNotBlank() }
          ?: fallback?.trim()?.takeIf { it.isNotBlank() }
  }

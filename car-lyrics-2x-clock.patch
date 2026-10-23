@@ -2029,7 +2029,7 @@ index 1e5fc1c..b5ff8a4 100644
              MainShellElevatedCard(shape = RoundedCornerShape(28.dp)) {
                  Row(
 diff --git a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
-index 1aa0ba8..3c81f92 100644
+index 1aa0ba8..9a8b356 100644
 --- a/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 +++ b/player/app/src/commonMain/kotlin/top/iwesley/lyn/music/automotive/AutomotivePlayerUi.kt
 @@ -3,9 +3,11 @@ package top.iwesley.lyn.music.automotive
@@ -3173,6 +3173,18 @@ index 1aa0ba8..3c81f92 100644
  
  internal fun resolveAutomotivePureModeAfterTwoFingerTap(
      isPureMode: Boolean,
+@@ -1148,9 +1780,9 @@ internal fun resolveAutomotiveLandscapeFrameLayout(maxWidth: Dp): AutomotiveLand
+         )
+     } else {
+         AutomotiveLandscapeFrameLayout(
+-            horizontalPadding = 44.dp,
++            horizontalPadding = 8.dp,
+             verticalPadding = 28.dp,
+-            paneGap = 36.dp,
++            paneGap = 16.dp,
+         )
+     }
+ 
 @@ -1190,11 +1822,91 @@ private val AutomotiveControlMinimumTouchSize = 48.dp
  private val AutomotiveFiveControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 5
  private val AutomotivePrimaryControlsAbsoluteMinimumWidth = AutomotiveControlMinimumTouchSize * 3
@@ -3205,7 +3217,7 @@ index 1aa0ba8..3c81f92 100644
 +// 封面可用宽度 = 531.8 − 76 − 8 = 447.8dp，440 在其中且留 7.8dp 余量。
 +// v29.1：调用处的留边系数 0.99 已去掉（等效 1.0）—— 440 本身已比 447.8 小 7.8dp，
 +// 再乘系数是重复打折；现在封面在正常车机上恒为 440dp，只有可用空间真的不足时才收小。
-+private val AutomotivePureModeArtworkFixedSize = 440.dp
++private val AutomotivePureModeArtworkFixedSize = 480.dp
 +private val AutomotiveMaximizeBackButtonSize = 84.dp
 +private val AutomotiveMaximizeBackIconSize = 48.dp
 +private const val AutomotivePureModeArtworkScale = 1.25f

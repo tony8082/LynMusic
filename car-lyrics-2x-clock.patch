@@ -3474,7 +3474,7 @@ index 7db32c1..5a2c837 100644
 +    return PlaybackSpeedPresets[(index + 1) % PlaybackSpeedPresets.size]
 +}
 diff --git a/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/data/repository/PlaybackRepositories.kt b/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/data/repository/PlaybackRepositories.kt
-index 332d1e4..00c0150 100644
+index 332d1e4..adb5455 100644
 --- a/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/data/repository/PlaybackRepositories.kt
 +++ b/player/core/src/commonMain/kotlin/top/iwesley/lyn/music/data/repository/PlaybackRepositories.kt
 @@ -65,18 +65,25 @@ import top.iwesley.lyn.music.core.model.UnsupportedMenuBarLyricsControlsPlatform
@@ -3590,7 +3590,7 @@ index 332d1e4..00c0150 100644
                          metadataTitle = gatewayState.metadataTitle,
                          metadataArtistName = gatewayState.metadataArtistName,
                          metadataAlbumTitle = gatewayState.metadataAlbumTitle,
-@@ -289,6 +352,29 @@ class DefaultPlaybackRepository(
+@@ -289,6 +352,48 @@ class DefaultPlaybackRepository(
                  systemPlaybackControlsPlatformService.updateSnapshot(snapshot)
              }
          }
@@ -3617,10 +3617,29 @@ index 332d1e4..00c0150 100644
 +                }
 +            }
 +        }
++        // v31：队列游标续播（与上面的容器续播对称）。保证「直接重启 App/车机」也能从正确进度续播，
++        // 而非仅重开文件夹才生效。此前 PersistedQueue.positionMs 只在开播/seek/切歌/播完等离散事件落库，
++        // 长文件播放中途进程被杀（车机重启、系统回收、崩溃）会回退到旧进度甚至 0。
++        // 播放中每 15 秒节流写一次当前曲目+进度（暂停时由 pause 路径落一次库兜底），最多丢 15 秒。
++        launchLifecycleJob {
++            var lastCursorWriteAt = 0L
++            snapshot.collect { snap ->
++                val track = snap.currentTrack
++                if (track == null || !snap.isPlaying) {
++                    lastCursorWriteAt = 0L
++                    return@collect
++                }
++                val now = currentTimeMillis()
++                if (now - lastCursorWriteAt >= QUEUE_RESUME_THROTTLE_MS) {
++                    persistSnapshotCursorIfPersistent()
++                    lastCursorWriteAt = now
++                }
++            }
++        }
      }
  
      override suspend fun hydratePersistedQueueIfNeeded(): PlaybackHydrationResult =
-@@ -322,31 +408,54 @@ class DefaultPlaybackRepository(
+@@ -322,31 +427,54 @@ class DefaultPlaybackRepository(
              result
          }
  
@@ -3683,7 +3702,7 @@ index 332d1e4..00c0150 100644
              )
          }
          loadRequest?.let {
-@@ -355,6 +464,40 @@ class DefaultPlaybackRepository(
+@@ -355,6 +483,40 @@ class DefaultPlaybackRepository(
          }
      }
  
@@ -3724,7 +3743,16 @@ index 332d1e4..00c0150 100644
      override suspend fun playTransientTracks(tracks: List<Track>, startIndex: Int) {
          var loadRequest: PlaybackLoadRequest? = null
          playbackCommandMutex.withLock {
-@@ -480,6 +623,28 @@ class DefaultPlaybackRepository(
+@@ -435,6 +597,8 @@ class DefaultPlaybackRepository(
+             }
+             if (mutableSnapshot.value.isPlaying) {
+                 gateway.pause()
++                // v31：暂停时立即落库当前进度，作为 15 秒周期落库的兜底（防暂停后进程被杀丢进度）。
++                persistSnapshotCursorIfPersistent()
+             } else {
+                 gateway.play()
+             }
+@@ -480,6 +644,28 @@ class DefaultPlaybackRepository(
          }
      }
  
@@ -3753,7 +3781,7 @@ index 332d1e4..00c0150 100644
      override suspend fun seekTo(positionMs: Long) {
          playbackCommandMutex.withLock {
              if (!mutableSnapshot.value.canSeek) return@withLock
-@@ -489,6 +654,20 @@ class DefaultPlaybackRepository(
+@@ -489,6 +675,20 @@ class DefaultPlaybackRepository(
          }
      }
  
@@ -3774,7 +3802,7 @@ index 332d1e4..00c0150 100644
      override suspend fun setVolume(volume: Float) {
          val normalized = normalizePlaybackVolume(volume)
          playbackCommandMutex.withLock {
-@@ -498,6 +677,26 @@ class DefaultPlaybackRepository(
+@@ -498,6 +698,26 @@ class DefaultPlaybackRepository(
          }
      }
  
@@ -3801,7 +3829,7 @@ index 332d1e4..00c0150 100644
      override suspend fun cycleMode() {
          playbackCommandMutex.withLock {
              val snapshot = mutableSnapshot.value
-@@ -511,6 +710,20 @@ class DefaultPlaybackRepository(
+@@ -511,6 +731,20 @@ class DefaultPlaybackRepository(
          }
      }
  
@@ -3822,7 +3850,16 @@ index 332d1e4..00c0150 100644
      override suspend fun overrideCurrentTrackArtwork(artworkLocator: String?) {
          playbackCommandMutex.withLock {
              val snapshot = mutableSnapshot.value
-@@ -690,6 +903,16 @@ class DefaultPlaybackRepository(
+@@ -579,6 +813,8 @@ class DefaultPlaybackRepository(
+                     "snapshotPlaying=${mutableSnapshot.value.isPlaying} position=${mutableSnapshot.value.positionMs}"
+             }
+             gateway.pause()
++            // v31：暂停时立即落库当前进度，作为 15 秒周期落库的兜底（防暂停后进程被杀丢进度）。
++            persistSnapshotCursorIfPersistent()
+         }
+     }
+ 
+@@ -690,6 +926,16 @@ class DefaultPlaybackRepository(
              persisted.currentIndex.coerceIn(0, queueIds.lastIndex),
          )
          val mode = persisted.mode.toPlaybackMode()
@@ -3839,7 +3876,7 @@ index 332d1e4..00c0150 100644
          val playWhenReady = playbackPreferencesStore.autoPlayOnStartup.value
          var loadRequest: PlaybackLoadRequest? = null
          var shouldApplyRestore = false
-@@ -699,14 +922,14 @@ class DefaultPlaybackRepository(
+@@ -699,14 +945,14 @@ class DefaultPlaybackRepository(
              } else {
                  shouldApplyRestore = true
                  mutableSnapshot.value = PlaybackSnapshot(
@@ -3857,7 +3894,7 @@ index 332d1e4..00c0150 100644
                      canSeek = false,
                      volume = mutableSnapshot.value.volume,
                      metadataTitle = null,
-@@ -715,7 +938,7 @@ class DefaultPlaybackRepository(
+@@ -715,7 +961,7 @@ class DefaultPlaybackRepository(
                      metadataArtworkLocator = null,
                  )
                  loadRequest = createLoadRequest(
@@ -3866,12 +3903,20 @@ index 332d1e4..00c0150 100644
                      playWhenReady = playWhenReady,
                      startPositionMs = persisted.positionMs,
                  )
-@@ -1145,6 +1368,9 @@ data class PlayerRuntimeServices(
+@@ -1145,6 +1391,17 @@ data class PlayerRuntimeServices(
  
  private fun now(): Long = Clock.System.now().toEpochMilliseconds()
  
 +/** 续播记录写入节流：同一首歌内至少间隔这么久才再次落库（防断电丢进度，又不至于频繁写库）。 */
 +private const val CONTAINER_RESUME_THROTTLE_MS = 15_000L
++
++/**
++ * v31：队列游标续播节流间隔（与容器续播一致）。
++ * 此前 PersistedQueue.positionMs 只在开播/seek/切歌/播完等离散事件落库，
++ * 长文件播放中途若进程被杀（车机重启、系统回收、崩溃），重启后会回退到旧进度甚至 0。
++ * 这里每 15 秒把当前曲目+进度写一次，保证「直接重启 App」也能续播，最多丢 15 秒。
++ */
++private const val QUEUE_RESUME_THROTTLE_MS = 15_000L
 +
  internal fun remotePlaybackSourceIds(
      queue: List<Track>,
